@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceAI App — План до продакшна</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #F0F4F8;
+    color: #1F2937;
+    line-height: 1.6;
+  }
+
+  /* ── Sidebar nav ── */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0;
+    width: 220px; height: 100vh;
+    background: #1E3A5F;
+    padding: 24px 0;
+    overflow-y: auto;
+    z-index: 100;
+  }
+  .sidebar-logo {
+    padding: 0 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 12px;
+  }
+  .sidebar-logo h2 { color: #fff; font-size: 16px; font-weight: 700; }
+  .sidebar-logo p  { color: #93C5FD; font-size: 11px; margin-top: 2px; }
+  .nav-item {
+    display: block;
+    padding: 8px 20px;
+    color: #93C5FD;
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+  }
+  .nav-item:hover, .nav-item.active {
+    color: #fff;
+    background: rgba(255,255,255,0.07);
+    border-left-color: #3B82F6;
+  }
+  .nav-section {
+    padding: 12px 20px 4px;
+    color: #6B7280;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── Main content ── */
+  .main {
+    margin-left: 220px;
+    padding: 0 0 60px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #1E3A5F 0%, #1E40AF 100%);
+    padding: 56px 48px;
+    color: #fff;
+  }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.15);
+    color: #BFDBFE;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .hero h1 { font-size: 40px; font-weight: 800; margin-bottom: 8px; }
+  .hero p  { font-size: 18px; color: #93C5FD; margin-bottom: 24px; }
+  .hero-meta {
+    display: flex; gap: 24px; flex-wrap: wrap;
+  }
+  .hero-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.1);
+    padding: 8px 14px; border-radius: 8px;
+    font-size: 13px;
+  }
+  .hero-badge .icon { font-size: 16px; }
+
+  /* ── Section ── */
+  .section {
+    padding: 48px 48px 0;
+  }
+  .section + .section { border-top: 1px solid #E5E7EB; margin-top: 48px; padding-top: 48px; }
+
+  .section-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 28px;
+  }
+  .section-num {
+    background: #1E3A5F;
+    color: #fff;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-header h2 { font-size: 24px; font-weight: 700; color: #1E3A5F; }
+
+  h3 {
+    font-size: 16px; font-weight: 700;
+    color: #1E40AF;
+    margin: 28px 0 12px;
+  }
+
+  p { margin-bottom: 12px; font-size: 14px; }
+  .muted { color: #6B7280; font-style: italic; font-size: 13px; }
+
+  /* ── Tables ── */
+  .tbl-wrap { overflow-x: auto; margin: 16px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  thead tr { background: #1E3A5F; }
+  thead th {
+    padding: 10px 14px;
+    color: #fff;
+    text-align: left;
+    font-weight: 600;
+  }
+  tbody tr:nth-child(even) { background: #EFF6FF; }
+  tbody tr:nth-child(odd)  { background: #fff; }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #E5E7EB;
+    vertical-align: top;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 12px; font-weight: 600;
+  }
+  .tag-green  { background: #DCFCE7; color: #166534; }
+  .tag-blue   { background: #DBEAFE; color: #1E40AF; }
+  .tag-amber  { background: #FEF3C7; color: #92400E; }
+  .tag-gray   { background: #F3F4F6; color: #374151; }
+
+  /* ── Steps / numbered list ── */
+  .steps { counter-reset: step; list-style: none; padding: 0; }
+  .steps li {
+    counter-increment: step;
+    display: flex; gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid #F3F4F6;
+    font-size: 14px;
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step);
+    background: #DBEAFE;
+    color: #1E40AF;
+    min-width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── Bullets ── */
+  .bullets { list-style: none; padding: 0; }
+  .bullets li {
+    padding: 6px 0 6px 20px;
+    position: relative;
+    font-size: 14px;
+    border-bottom: 1px solid #F9FAFB;
+  }
+  .bullets li::before {
+    content: '•';
+    position: absolute; left: 0;
+    color: #3B82F6; font-weight: 700;
+  }
+
+  /* ── Info box ── */
+  .infobox {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+  .infobox-blue   { background: #EFF6FF; border-left: 4px solid #3B82F6; }
+  .infobox-green  { background: #F0FDF4; border-left: 4px solid #22C55E; }
+  .infobox-amber  { background: #FFFBEB; border-left: 4px solid #F59E0B; }
+  .infobox-gray   { background: #F8FAFC; border-left: 4px solid #94A3B8; border-radius: 0 10px 10px 0; font-family: 'Courier New', monospace; font-size: 12.5px; }
+  .infobox strong { color: #1E3A5F; }
+
+  /* ── Grid cards ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card-icon { font-size: 24px; margin-bottom: 8px; }
+  .card h4   { font-size: 14px; font-weight: 700; color: #1E3A5F; margin-bottom: 4px; }
+  .card p    { font-size: 12.5px; color: #6B7280; margin: 0; }
+
+  /* ── Timeline ── */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before {
+    content: '';
+    position: absolute; left: 9px; top: 0; bottom: 0;
+    width: 2px; background: #DBEAFE;
+  }
+  .tl-item { position: relative; margin-bottom: 20px; }
+  .tl-dot {
+    position: absolute; left: -28px; top: 3px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #3B82F6;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #BFDBFE;
+  }
+  .tl-week {
+    font-size: 12px; font-weight: 700;
+    color: #3B82F6; margin-bottom: 3px;
+  }
+  .tl-text { font-size: 13.5px; color: #374151; }
+
+  /* ── Metrics ── */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 14px; margin: 16px 0;
+  }
+  .metric-card {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+  }
+  .metric-label { font-size: 12px; color: #6B7280; margin-bottom: 6px; }
+  .metric-val   { font-size: 22px; font-weight: 800; color: #1E40AF; }
+  .metric-sub   { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+
+  /* ── Next steps ── */
+  .checklist { list-style: none; padding: 0; }
+  .checklist li {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-box {
+    width: 20px; height: 20px;
+    border: 2px solid #D1D5DB;
+    border-radius: 4px;
+    flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    margin-left: 220px;
+    padding: 24px 48px;
+    background: #1E3A5F;
+    color: #93C5FD;
+    font-size: 13px;
+    display: flex; justify-content: space-between;
+  }
+
+  @media print {
+    .sidebar { display: none; }
+    .main, .footer { margin-left: 0; }
+    .section + .section { page-break-before: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── SIDEBAR ──────────────────────────────────────── -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h2>FinanceAI App</h2>
+    <p>План до продакшна v1.0</p>
+  </div>
+  <span class="nav-section">Разделы</span>
+  <a class="nav-item" href="#s0">0. Суть продукта</a>
+  <a class="nav-item" href="#s1">1. Архитектура</a>
+  <a class="nav-item" href="#s2">2. MVP</a>
+  <a class="nav-item" href="#s3">3. Монетизация</a>
+  <a class="nav-item" href="#s4">4. ASO</a>
+  <a class="nav-item" href="#s5">5. SEO</a>
+  <a class="nav-item" href="#s6">6. Запуск</a>
+  <a class="nav-item" href="#s7">7. Метрики</a>
+  <a class="nav-item" href="#s8">8. Риски</a>
+  <a class="nav-item" href="#s9">9. Следующие шаги</a>
+</nav>
+
+<!-- ── MAIN ─────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-tag">Март 2026 · v1.0</div>
+    <h1>FinanceAI App</h1>
+    <p>Полный план действий: от идеи до продакшна</p>
+    <div class="hero-meta">
+      <div class="hero-badge"><span class="icon">📱</span> iOS + Android (Flutter)</div>
+      <div class="hero-badge"><span class="icon">🌍</span> Global (EN)</div>
+      <div class="hero-badge"><span class="icon">💳</span> Freemium + Подписка</div>
+      <div class="hero-badge"><span class="icon">🐳</span> Docker на своём сервере</div>
+      <div class="hero-badge"><span class="icon">👤</span> Соло-разработчик</div>
+    </div>
+  </div>
+
+  <!-- ── 0. СУТЬ ──────────────────────────────────── -->
+  <div class="section" id="s0">
+    <div class="section-header">
+      <div class="section-num">0</div>
+      <h2>Суть продукта и дифференциатор</h2>
+    </div>
+
+    <p>Мобильное приложение учёта финансов с AI-советником как <strong>главной фичей</strong>, а не дополнением.</p>
+
+    <h3>Ключевые фичи</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Фича</th><th>Приоритет</th></tr></thead>
+      <tbody>
+        <tr><td>🤖 AI-финансовый советник</td><td><span class="tag tag-green">MVP — главный дифф.</span></td></tr>
+        <tr><td>📊 Учёт транзакций</td><td><span class="tag tag-green">MVP</span></td></tr>
+        <tr><td>🔔 Лимиты расходов + алерты</td><td><span class="tag tag-green">MVP</span></td></tr>
+        <tr><td>🔁 Регулярные транзакции</td><td><span class="tag tag-blue">Фаза 2</span></td></tr>
+        <tr><td>👨‍👩‍👧 Семейный доступ</td><td><span class="tag tag-blue">Фаза 2</span></td></tr>
+        <tr><td>🎨 Выбор тем и оформления</td><td><span class="tag tag-blue">Фаза 2</span></td></tr>
+        <tr><td>🏦 Банковская интеграция (Plaid)</td><td><span class="tag tag-amber">Фаза 3</span></td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Конкурентный анализ</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Конкурент</th><th>Слабость</th><th>Наше преимущество</th></tr></thead>
+      <tbody>
+        <tr><td>YNAB ($15/мес)</td><td>Нет AI, сложный onboarding</td><td>Проще + AI советник</td></tr>
+        <tr><td>Mint (закрыт 2024)</td><td>Закрыт — аудитория свободна</td><td>Занять нишу</td></tr>
+        <tr><td>Copilot ($8/мес)</td><td>Только iOS, нет Android</td><td>Кроссплатформа</td></tr>
+        <tr><td>Money Manager</td><td>Нет AI, устаревший UI</td><td>AI + современный UX</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- ── 1. АРХИТЕКТУРА ───────────────────────────── -->
+  <div class="section" id="s1">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h2>Архитектура</h2>
+    </div>
+
+    <h3>Технический стек</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Слой</th><th>Технология</th><th>Почему</th></tr></thead>
+      <tbody>
+        <tr><td>Мобильное приложение</td><td><strong>Flutter</strong></td><td>Один код → iOS+Android, быстрый UI</td></tr>
+        <tr><td>Backend</td><td><strong>Node.js + Fastify</strong></td><td>Быстро, легковесно, TypeScript</td></tr>
+        <tr><td>База данных</td><td><strong>PostgreSQL</strong></td><td>Надёжно, SQL, отлично для финансов</td></tr>
+        <tr><td>AI-советник</td><td><strong>Claude API / OpenAI</strong></td><td>Только через backend, не из приложения</td></tr>
+        <tr><td>Авторизация</td><td><strong>JWT + Refresh Tokens</strong></td><td>Стандарт + Google OAuth</td></tr>
+        <tr><td>Подписки</td><td><strong>RevenueCat SDK</strong></td><td>App Store + Google Play из одного места</td></tr>
+        <tr><td>Push-уведомления</td><td><strong>Firebase FCM</strong></td><td>Бесплатно, надёжно для алертов</td></tr>
+        <tr><td>Аналитика</td><td><strong>PostHog (self-hosted)</strong></td><td>Бесплатно на своём сервере, GDPR</td></tr>
+        <tr><td>CI/CD</td><td><strong>GitHub Actions</strong></td><td>Автодеплой бэка + автосборка приложения</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Docker-структура (твой сервер)</h3>
+    <div class="infobox infobox-gray">
+      <strong>docker-compose.yml</strong><br><br>
+      &nbsp;&nbsp;<strong>nginx</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; — reverse proxy + SSL (Let's Encrypt)<br>
+      &nbsp;&nbsp;<strong>api</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; — Node.js backend (Fastify)<br>
+      &nbsp;&nbsp;<strong>postgres</strong>&nbsp;&nbsp;&nbsp;&nbsp; — база данных<br>
+      &nbsp;&nbsp;<strong>redis</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; — кэш AI-запросов + очереди задач<br>
+      &nbsp;&nbsp;<strong>posthog</strong>&nbsp;&nbsp;&nbsp;&nbsp; — аналитика (опционально)<br><br>
+      Внешние: Claude API, FCM, RevenueCat, App Store, Google Play
+    </div>
+
+    <h3>Принципы (для устойчивости)</h3>
+    <ol class="steps">
+      <li><strong>API versioning</strong> с первого дня — все роуты через <code>/api/v1/</code>. При изменениях создаёшь <code>/api/v2/</code> — старые клиенты не ломаются.</li>
+      <li><strong>Feature flags</strong> через PostHog — новые фичи включаешь без релиза в App Store.</li>
+      <li><strong>Миграции БД в коде</strong> — используй node-pg-migrate. Структура БД всегда в git.</li>
+      <li><strong>AI запросы только с backend</strong> — API ключ никогда не попадает в мобильное приложение.</li>
+      <li><strong>Redis кэш AI</strong> — одинаковые запросы кэшируй на 24 часа. Сокращает стоимость API в 3–5 раз.</li>
+      <li><strong>Graceful degradation</strong> — если AI сервис недоступен, приложение продолжает работать без него.</li>
+    </ol>
+
+    <h3>Структура проекта</h3>
+    <div class="infobox infobox-gray">
+      /finance-app<br>
+      &nbsp;&nbsp;/mobile&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— Flutter приложение<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;/lib<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/features&nbsp;&nbsp;&nbsp;&nbsp;— transactions, budget, ai_advisor<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/core&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— auth, api, theme<br>
+      &nbsp;&nbsp;/backend&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— Node.js API<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;/src<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/routes&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— /v1/transactions, /v1/budget, /v1/ai<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/services&nbsp;&nbsp;&nbsp;&nbsp;— бизнес-логика<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/db&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— миграции + модели<br>
+      &nbsp;&nbsp;/infra&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— docker-compose, nginx конфиги<br>
+      &nbsp;&nbsp;/landing&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;— SEO лендинг (Next.js)
+    </div>
+  </div>
+
+  <!-- ── 2. MVP ─────────────────────────────────────── -->
+  <div class="section" id="s2">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h2>MVP — что строим в первую очередь</h2>
+    </div>
+
+    <div class="infobox infobox-blue">
+      <strong>Правило MVP:</strong> строим минимум, который решает главную проблему и позволяет получить первых платящих пользователей. Всё остальное — в следующих фазах.
+    </div>
+
+    <h3>Что входит в MVP</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Фича</th><th>Детали</th></tr></thead>
+      <tbody>
+        <tr><td>Регистрация и вход</td><td>Email/пароль + Google OAuth</td></tr>
+        <tr><td>Добавление транзакций</td><td>Ручной ввод, категории, дата, сумма</td></tr>
+        <tr><td>Категории</td><td>15 предустановленных + кастомные</td></tr>
+        <tr><td>Лимиты расходов</td><td>Лимит на категорию, алерт при 80% и 100%</td></tr>
+        <tr><td>Push-уведомления</td><td>Алерты по лимитам, ежедневный дайджест</td></tr>
+        <tr><td>AI-советник (базовый)</td><td>Чат с контекстом последних 30 транзакций</td></tr>
+        <tr><td>Статистика</td><td>График за месяц, топ категорий, баланс</td></tr>
+        <tr><td>Freemium gate</td><td>Free: 5 AI запросов/день, Pro: безлимит</td></tr>
+        <tr><td>Paywall экран</td><td>RevenueCat, подписка Pro</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Что НЕ входит в MVP (намеренно)</h3>
+    <ul class="bullets">
+      <li>Банковская интеграция — сложно, Plaid стоит $500+/мес</li>
+      <li>Семейный доступ — усложняет auth и data model</li>
+      <li>Темы и оформление — не влияет на retention на старте</li>
+      <li>Регулярные транзакции — добавим в Фазе 2</li>
+      <li>CSV импорт/экспорт — полезно, но не критично</li>
+    </ul>
+
+    <h3>Timeline MVP (соло-разработчик, 16 недель)</h3>
+    <div class="timeline">
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 1–2</div><div class="tl-text">Настройка инфраструктуры: Docker, CI/CD, домен, SSL, БД миграции</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 3–4</div><div class="tl-text">Auth (Flutter + backend), профиль пользователя, Google OAuth</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 5–6</div><div class="tl-text">Транзакции: добавление, категории, список, фильтры</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 7–8</div><div class="tl-text">Лимиты расходов + алерты + push-уведомления (FCM)</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 9–10</div><div class="tl-text">AI-советник: интеграция Claude API, чат UI, Redis кэш</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 11–12</div><div class="tl-text">Статистика, дашборд, графики</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 13–14</div><div class="tl-text">RevenueCat + paywall, freemium логика</div></div>
+      <div class="tl-item"><div class="tl-dot"></div><div class="tl-week">Неделя 15–16</div><div class="tl-text">Тестирование, баги, App Store / Google Play публикация</div></div>
+    </div>
+  </div>
+
+  <!-- ── 3. МОНЕТИЗАЦИЯ ───────────────────────────── -->
+  <div class="section" id="s3">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h2>Монетизация</h2>
+    </div>
+
+    <h3>Тиры и цены</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Функция</th><th>Free</th><th>Pro — $6.99/мес или $49.99/год</th></tr></thead>
+      <tbody>
+        <tr><td>Транзакции</td><td>До 50/мес</td><td>Безлимит</td></tr>
+        <tr><td>AI-советник</td><td>5 запросов/день</td><td>Безлимит + расширенный контекст</td></tr>
+        <tr><td>Лимиты</td><td>3 категории</td><td>Безлимит категорий</td></tr>
+        <tr><td>Статистика</td><td>Только текущий месяц</td><td>История 12 месяцев</td></tr>
+        <tr><td>Экспорт данных</td><td>—</td><td>CSV экспорт</td></tr>
+        <tr><td>Регулярные транзакции</td><td>—</td><td>Да (Фаза 2)</td></tr>
+        <tr><td>Темы</td><td>Только светлая</td><td>Все темы (Фаза 2)</td></tr>
+        <tr><td>Семейный доступ</td><td>—</td><td>До 5 человек (Фаза 2, +$5/мес)</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Шаги интеграции</h3>
+    <ol class="steps">
+      <li>Создать аккаунт в RevenueCat (бесплатно до $2 500 MRR).</li>
+      <li>Настроить продукты в App Store Connect: monthly ($6.99) и annual ($49.99).</li>
+      <li>Настроить аналогичные продукты в Google Play Console.</li>
+      <li>Интегрировать RevenueCat Flutter SDK — примерно 1 день работы.</li>
+      <li>Создать paywall экран: показывать при 6-м AI запросе или 51-й транзакции.</li>
+      <li>Добавить 7-дневный trial для новых пользователей.</li>
+      <li>Настроить RevenueCat webhooks → твой backend для синхронизации статуса.</li>
+      <li>Добавить экран "Manage Subscription" в профиле пользователя.</li>
+    </ol>
+
+    <h3>Стратегия конверсии</h3>
+    <ul class="bullets">
+      <li>Показывать paywall в момент ценности, не при первом запуске</li>
+      <li>"You've used 4 of 5 daily AI requests" — pre-paywall уведомление</li>
+      <li>Ценник annual "$1.43/мес" эффективнее чем "Save 40%" — конкретная цифра работает</li>
+      <li>A/B тест: paywall с monthly первым vs annual первым</li>
+      <li>После 30 дней — "Your finances improved X% — keep it up with Pro"</li>
+    </ul>
+
+    <div class="infobox infobox-green">
+      <strong>Цели по метрикам:</strong><br>
+      Conversion Free → Pro: 3–5% (средний по рынку finance apps)<br>
+      Churn: &lt;5% в месяц<br>
+      Target MRR через 12 мес: $5 000+
+    </div>
+  </div>
+
+  <!-- ── 4. ASO ─────────────────────────────────────── -->
+  <div class="section" id="s4">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h2>ASO — App Store Optimization</h2>
+    </div>
+
+    <p>ASO — это SEO для магазинов приложений. Правильная оптимизация даёт <strong>40–60% органических установок</strong>.</p>
+
+    <h3>Шаг 1: Исследование ключевых слов</h3>
+    <ol class="steps">
+      <li>Инструменты: AppFollow (платный), AppKeywords.io (бесплатно), Sensor Tower.</li>
+      <li>Целевые ключевые слова: "budget tracker", "personal finance app", "spending tracker", "AI money manager", "expense tracker", "money budget planner".</li>
+      <li>Найти низкоконкурентные long-tail: "AI budget assistant", "smart spending alerts".</li>
+    </ol>
+
+    <h3>Шаг 2: Метаданные</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Элемент</th><th>Рекомендация</th></tr></thead>
+      <tbody>
+        <tr><td>Название iOS (30 симв.)</td><td>FinanceAI: Budget & Tracker</td></tr>
+        <tr><td>Subtitle iOS (30 симв.)</td><td>AI Advisor & Spending Limits</td></tr>
+        <tr><td>Название Android (50 симв.)</td><td>FinanceAI - AI Budget Tracker & Advisor</td></tr>
+        <tr><td>Short description Android</td><td>Track spending, set budgets, get AI financial advice</td></tr>
+        <tr><td>Keywords iOS (100 симв.)</td><td>Без пробелов после запятых, без повторов из названия</td></tr>
+        <tr><td>Description (оба)</td><td>Первые 3 строки — самые важные (выше fold). Ключевые слова + CTA.</td></tr>
+        <tr><td>Category iOS</td><td>Finance (primary), Productivity (secondary)</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Шаг 3: Визуальные материалы</h3>
+    <ol class="steps">
+      <li><strong>Иконка:</strong> чистый дизайн, узнаваема в маленьком размере. Тест на белом и тёмном фоне.</li>
+      <li><strong>Screenshots (6 штук):</strong> каждый — одна главная мысль с текстом поверх.</li>
+      <li><strong>Screenshot 1:</strong> "Your AI Financial Advisor" — главная фича.</li>
+      <li><strong>Screenshot 2:</strong> "Smart Spending Limits & Alerts".</li>
+      <li><strong>Screenshot 3:</strong> "Track Every Transaction".</li>
+      <li><strong>Screenshot 4:</strong> "Monthly Spending Analytics".</li>
+      <li><strong>Screenshot 5:</strong> "AI Chat — Ask Anything About Your Money".</li>
+      <li><strong>App Preview Video (15–30 сек):</strong> показать AI советника в действии — главный hook.</li>
+    </ol>
+
+    <h3>Шаг 4: Рейтинги и отзывы</h3>
+    <ol class="steps">
+      <li>Просить review после позитивных действий: лимит сэкономил деньги, AI дал полезный совет.</li>
+      <li>НЕ просить при первом запуске — снижает конверсию отзывов.</li>
+      <li>Отвечать на каждый отзыв — алгоритмы App Store учитывают активность.</li>
+    </ol>
+
+    <h3>Шаг 5: После публикации</h3>
+    <ol class="steps">
+      <li>A/B тест иконки и screenshots через App Store Connect Product Page Optimization.</li>
+      <li>Обновлять метаданные под сезон: "New Year budget", "tax season tracker".</li>
+      <li>Следить за позициями по ключевым словам еженедельно.</li>
+    </ol>
+  </div>
+
+  <!-- ── 5. SEO ─────────────────────────────────────── -->
+  <div class="section" id="s5">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>SEO — Лендинг и органический трафик</h2>
+    </div>
+
+    <div class="infobox infobox-amber">
+      <strong>⚠️ SEO требует 3–6 месяцев для результата.</strong> Начинать нужно ДО релиза приложения.
+    </div>
+
+    <h3>Технический стек лендинга</h3>
+    <ul class="bullets">
+      <li><strong>Next.js (SSR/SSG)</strong> — лучший SEO из коробки, деплой на Vercel бесплатно</li>
+      <li><strong>Домен с ключевым словом:</strong> budgetai.app, financeai.io, spendwise.app</li>
+      <li><strong>SSL + HTTP/2 + Core Web Vitals</strong> — обязательно для ранжирования</li>
+    </ul>
+
+    <h3>Структура страниц</h3>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Страница</th><th>Цель / SEO-запрос</th></tr></thead>
+      <tbody>
+        <tr><td>/</td><td>"AI budget app", "personal finance app"</td></tr>
+        <tr><td>/features</td><td>"budget tracker features", "spending limit app"</td></tr>
+        <tr><td>/pricing</td><td>"budget app price", "free finance tracker"</td></tr>
+        <tr><td>/blog</td><td>Основной источник органического трафика</td></tr>
+        <tr><td>/vs/mint</td><td>"mint alternative" — высокий трафик после закрытия Mint</td></tr>
+        <tr><td>/vs/ynab</td><td>"ynab alternative", "cheaper than ynab" — платёжеспособная аудитория</td></tr>
+        <tr><td>/vs/copilot</td><td>"copilot finance alternative android"</td></tr>
+        <tr><td>/download</td><td>Страница загрузки для deep links</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Первые 10 статей для блога</h3>
+    <ol class="steps">
+      <li>"Best AI budgeting apps in 2026" — высокий трафик, упоминаешь свой продукт</li>
+      <li>"How to track your spending automatically (without a spreadsheet)"</li>
+      <li>"YNAB vs FinanceAI: honest comparison"</li>
+      <li>"How AI can help you save more money"</li>
+      <li>"Setting spending limits that actually work"</li>
+      <li>"How to build a family budget together"</li>
+      <li>"The 50/30/20 rule: how to automate it with an app"</li>
+      <li>"What happened to Mint? Best alternatives in 2026"</li>
+      <li>"How I saved $500 in 3 months using spending alerts"</li>
+      <li>"Personal finance for beginners: where to start"</li>
+    </ol>
+
+    <h3>Технический SEO чеклист</h3>
+    <ul class="bullets">
+      <li>sitemap.xml — автогенерация через Next.js</li>
+      <li>robots.txt — разрешить индексацию</li>
+      <li>Meta title + description для каждой страницы</li>
+      <li>OG images для шэринга (1200×630 px)</li>
+      <li>Schema.org SoftwareApplication разметка</li>
+      <li>Core Web Vitals: LCP &lt;2.5s, FID &lt;100ms, CLS &lt;0.1</li>
+    </ul>
+
+    <h3>Backlinks — как получить первые ссылки</h3>
+    <ol class="steps">
+      <li>Product Hunt — публикация даёт ссылки с DA 90+.</li>
+      <li>Hacker News — Show HN пост.</li>
+      <li>Reddit: r/personalfinance, r/financialindependence — полезный контент, не спам.</li>
+      <li>AppAdvice, AlternativeTo — добавить приложение в каталоги.</li>
+      <li>"There's an AI for that", Futurepedia — для AI-фичи.</li>
+    </ol>
+  </div>
+
+  <!-- ── 6. ЗАПУСК ─────────────────────────────────── -->
+  <div class="section" id="s6">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h2>План запуска</h2>
+    </div>
+
+    <h3>Фаза 0: До разработки (сейчас)</h3>
+    <ol class="steps">
+      <li>Зарегистрировать домен и запустить лендинг с waitlist (1–2 дня).</li>
+      <li>Настроить email-коллекцию: ConvertKit или Mailchimp (бесплатно до 500 подписчиков).</li>
+      <li>Начать публиковать в Twitter/X: "Building a finance app with AI in public".</li>
+      <li>Участвовать в r/personalfinance — полезный контент, не реклама.</li>
+      <li><strong>Цель: 300–500 email адресов до запуска.</strong></li>
+    </ol>
+
+    <h3>Фаза 1: Разработка (1–4 мес)</h3>
+    <ol class="steps">
+      <li>Еженедельные апдейты в Twitter/X — "build in public" даёт органическую аудиторию.</li>
+      <li>TestFlight beta для iOS (100 бета-тестеров) + Google Play Internal Testing.</li>
+      <li>Собрать 20 реальных пользователей на бета, провести интервью.</li>
+      <li>1 блог-статья в неделю.</li>
+    </ol>
+
+    <h3>День запуска</h3>
+    <ol class="steps">
+      <li>Выбрать вторник–четверг, не пятница, не праздники.</li>
+      <li><strong>Product Hunt:</strong> публиковать в 12:01 AM PST, заранее подготовить все материалы.</li>
+      <li><strong>Hacker News:</strong> "Show HN: FinanceAI — AI-powered budget tracker for iOS and Android".</li>
+      <li>Email blast по waitlist списку.</li>
+      <li>Reddit посты в r/personalfinance, r/financialindependence.</li>
+      <li>Twitter/X — thread о том, что строил и зачем.</li>
+    </ol>
+
+    <h3>Первые 30 дней</h3>
+    <ol class="steps">
+      <li>Отвечать на каждый отзыв в App Store и Google Play.</li>
+      <li>Мониторить: DAU, retention D1/D7/D30, AI запросы, конверсию в Pro.</li>
+      <li>Обновление каждые 2 недели — сигнал алгоритмам App Store.</li>
+      <li>In-app опрос после 7 дней использования.</li>
+    </ol>
+  </div>
+
+  <!-- ── 7. МЕТРИКИ ────────────────────────────────── -->
+  <div class="section" id="s7">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <h2>Ключевые метрики</h2>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card"><div class="metric-label">Загрузки (3 мес)</div><div class="metric-val">1 000</div><div class="metric-sub">цель</div></div>
+      <div class="metric-card"><div class="metric-label">Загрузки (12 мес)</div><div class="metric-val">20 000</div><div class="metric-sub">цель</div></div>
+      <div class="metric-card"><div class="metric-label">DAU/MAU ratio</div><div class="metric-val">30%+</div><div class="metric-sub">через 12 мес</div></div>
+      <div class="metric-card"><div class="metric-label">Retention D7</div><div class="metric-val">40%+</div><div class="metric-sub">через 12 мес</div></div>
+      <div class="metric-card"><div class="metric-label">Conversion Free→Pro</div><div class="metric-val">3–5%</div><div class="metric-sub">цель</div></div>
+      <div class="metric-card"><div class="metric-label">MRR (12 мес)</div><div class="metric-val">$5K+</div><div class="metric-sub">цель</div></div>
+      <div class="metric-card"><div class="metric-label">App Store рейтинг</div><div class="metric-val">4.5+</div><div class="metric-sub">через 12 мес</div></div>
+      <div class="metric-card"><div class="metric-label">Organic installs</div><div class="metric-val">60%+</div><div class="metric-sub">через 12 мес</div></div>
+    </div>
+
+    <h3>Инструменты мониторинга</h3>
+    <ul class="bullets">
+      <li><strong>PostHog self-hosted</strong> — события, воронки, retention, feature flags</li>
+      <li><strong>RevenueCat Dashboard</strong> — метрики монетизации, churn, MRR</li>
+      <li><strong>Grafana + Prometheus</strong> — мониторинг сервера и API</li>
+      <li><strong>Sentry</strong> — crash reporting (бесплатный tier достаточен)</li>
+      <li><strong>AppFollow</strong> — ASO мониторинг, отзывы, позиции</li>
+    </ul>
+  </div>
+
+  <!-- ── 8. РИСКИ ───────────────────────────────────── -->
+  <div class="section" id="s8">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <h2>Риски и как их снизить</h2>
+    </div>
+
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Риск</th><th>Вероятность</th><th>Как снизить</th></tr></thead>
+      <tbody>
+        <tr><td>AI API стоит дорого при росте</td><td><span class="tag tag-amber">Высокая</span></td><td>Redis кэш, лимиты в free tier, мониторинг расходов</td></tr>
+        <tr><td>Нет конверсии в Pro</td><td><span class="tag tag-amber">Средняя</span></td><td>Интервью до разработки, A/B тест paywall</td></tr>
+        <tr><td>Burnout соло-разработчика</td><td><span class="tag tag-amber">Средняя</span></td><td>Жёсткий MVP, не пилить всё сразу, публичная отчётность</td></tr>
+        <tr><td>Апрув App Store задерживается</td><td><span class="tag tag-amber">Средняя</span></td><td>Читать guidelines заранее, особенно финансы и AI</td></tr>
+        <tr><td>Сервер упал</td><td><span class="tag tag-amber">Средняя</span></td><td>Docker restart policy, мониторинг, бэкапы БД</td></tr>
+        <tr><td>GDPR / данные пользователей</td><td><span class="tag tag-green">Низкая</span></td><td>Privacy policy, шифрование БД, минимум данных</td></tr>
+        <tr><td>Конкурент скопирует идею</td><td><span class="tag tag-green">Низкая</span></td><td>Скорость важнее секретности — build in public</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- ── 9. СЛЕДУЮЩИЕ ШАГИ ─────────────────────────── -->
+  <div class="section" id="s9">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <h2>Следующие шаги (ближайшие 2 недели)</h2>
+    </div>
+
+    <h3>Неделя 1</h3>
+    <ul class="checklist">
+      <li><div class="check-box"></div>Зарегистрировать домен</li>
+      <li><div class="check-box"></div>Запустить лендинг с waitlist (Next.js на Vercel — 1 день)</li>
+      <li><div class="check-box"></div>Написать первую блог-статью</li>
+      <li><div class="check-box"></div>Создать Docker окружение на сервере (nginx + postgres + redis)</li>
+      <li><div class="check-box"></div>Инициализировать Flutter проект и backend структуру</li>
+    </ul>
+
+    <h3>Неделя 2</h3>
+    <ul class="checklist">
+      <li><div class="check-box"></div>Настроить CI/CD: GitHub Actions → deploy на сервер</li>
+      <li><div class="check-box"></div>Реализовать auth (JWT + Google OAuth)</li>
+      <li><div class="check-box"></div>Создать аккаунты: App Store Connect, Google Play Console, RevenueCat</li>
+      <li><div class="check-box"></div>Получить Claude API / OpenAI ключ</li>
+      <li><div class="check-box"></div>Первый "build in public" пост в Twitter/X</li>
+    </ul>
+
+    <div class="infobox infobox-blue" style="margin-top:28px; font-size:16px; text-align:center; padding:24px;">
+      <strong>Удачи! Начни с лендинга — это займёт 1 день и даст реальные данные о спросе. 🚀</strong>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <span>FinanceAI App — Plan v1.0 · Март 2026</span>
+  <span>Artem · a.sary@aq.io</span>
+</footer>
+
+<script>
+  // Highlight active nav item on scroll
+  const sections = document.querySelectorAll('.section');
+  const navItems = document.querySelectorAll('.nav-item');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navItems.forEach(n => n.classList.remove('active'));
+        const active = document.querySelector(`.nav-item[href="#${e.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.3 });
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

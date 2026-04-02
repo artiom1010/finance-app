@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinanceAI — Database Schema</title>
+<style>
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2128;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --col:      #79c0ff;
+
+  --auth:     #388bfd;
+  --settings: #a371f7;
+  --subs:     #3fb950;
+  --finance:  #f0883e;
+  --ai:       #f78166;
+
+  --pk:    #e3b341;
+  --fk:    #58a6ff;
+  --unq:   #a371f7;
+  --soft:  #f0883e;
+  --sys:   #3fb950;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+  background: var(--bg);
+  color: var(--text);
+  padding: 36px 28px 80px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── HEADER ──────────────────────────────────────── */
+.header { margin-bottom: 32px; }
+.header h1 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 4px; letter-spacing: -0.3px; }
+.header .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+.stats { display: flex; gap: 20px; }
+.stat { font-size: 12px; color: var(--muted); }
+.stat b { color: var(--text); font-weight: 600; }
+
+/* ── LEGEND ──────────────────────────────────────── */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 44px;
+}
+.legend-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.legend-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-right: 2px; }
+.legend-sep { width: 1px; background: var(--border); align-self: stretch; }
+.li { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.li-dot { width: 9px; height: 9px; border-radius: 2px; }
+
+/* ── SECTION ─────────────────────────────────────── */
+.section { margin-bottom: 52px; }
+.section-hdr {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.section-bar { width: 4px; height: 20px; border-radius: 2px; flex-shrink: 0; }
+.section-name { font-size: 14px; font-weight: 700; color: #fff; }
+.section-cnt { font-size: 11px; color: var(--muted); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+/* ── TABLE CARD ──────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.card-name { font-weight: 700; font-size: 13px; color: #fff; }
+.card-desc { font-size: 11px; color: var(--muted); }
+
+/* ── COLUMN ROWS ─────────────────────────────────── */
+.col {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 6px;
+  padding: 5px 14px;
+  border-bottom: 1px solid rgba(48,54,61,0.6);
+  align-items: center;
+  min-height: 28px;
+}
+.col:last-child { border-bottom: none; }
+.col.r-pk { background: rgba(227,179,65,0.04); }
+.col.r-fk { background: rgba(88,166,255,0.03); }
+.col.r-soft { background: rgba(240,136,62,0.04); }
+
+.cname {
+  font-size: 12px;
+  color: var(--col);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cname.nullable { color: var(--muted); font-style: italic; }
+
+.cright { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ctype { font-size: 11px; color: var(--muted); margin-right: 2px; white-space: nowrap; }
+
+/* ── BADGES ──────────────────────────────────────── */
+.b {
+  display: inline-flex;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.pk   { background: rgba(227,179,65,0.14);  color: #e3b341; }
+.fk   { background: rgba(88,166,255,0.12);  color: #58a6ff; }
+.unq  { background: rgba(163,113,247,0.12); color: #a371f7; }
+.soft { background: rgba(240,136,62,0.12);  color: #f0883e; }
+.sys  { background: rgba(63,185,80,0.12);   color: #3fb950; }
+.nul  { background: rgba(139,148,158,0.1);  color: var(--muted); }
+.chk  { background: rgba(255,255,255,0.06); color: var(--muted); font-size: 9px; font-weight: 400; }
+.def  { background: rgba(255,255,255,0.06); color: #8b949e; font-size: 9px; font-weight: 400; }
+
+/* ── CONSTRAINT ROW ──────────────────────────────── */
+.constraint {
+  padding: 4px 14px;
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(255,255,255,0.015);
+  border-top: 1px dashed rgba(48,54,61,0.8);
+  border-bottom: 1px solid rgba(48,54,61,0.4);
+}
+.constraint:last-child { border-bottom: none; }
+
+/* ── INDEX CARD ──────────────────────────────────── */
+.idx-card {
+  grid-column: 1 / -1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+.idx-card h3 { font-size: 12px; color: var(--muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.idx-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.idx-item { font-size: 11px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 3px 10px; }
+.idx-item span { color: var(--col); }
+
+/* ── FK MAP ──────────────────────────────────────── */
+.fk-map {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-top: 8px;
+}
+.fk-map h2 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 18px; }
+.fk-columns { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 4px; }
+.fk-row { display: flex; align-items: center; gap: 0; font-size: 12px; padding: 5px 0; border-bottom: 1px solid rgba(48,54,61,0.4); }
+.fk-row:last-child { border-bottom: none; }
+.fk-tbl  { color: #fff; font-weight: 600; min-width: 160px; }
+.fk-col  { color: var(--col); min-width: 160px; }
+.fk-arr  { color: var(--muted); margin: 0 10px; }
+.fk-ref  { color: var(--subs); }
+.fk-note { color: var(--muted); font-size: 10px; margin-left: 8px; }
+
+/* ── SECTION COLOR ACCENTS ───────────────────────── */
+.auth-card    { border-top: 2px solid var(--auth); }
+.settings-card { border-top: 2px solid var(--settings); }
+.subs-card    { border-top: 2px solid var(--subs); }
+.finance-card { border-top: 2px solid var(--finance); }
+.ai-card      { border-top: 2px solid var(--ai); }
+
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>FinanceAI — Database Schema</h1>
+  <div class="sub">PostgreSQL · 1НФ / 2НФ / 3НФ · ACID</div>
+  <div class="stats">
+    <div class="stat"><b>17</b> таблиц</div>
+    <div class="stat"><b>5</b> доменов</div>
+    <div class="stat"><b>17</b> внешних ключей</div>
+    <div class="stat"><b>9</b> индексов</div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <span class="legend-label">Домены</span>
+  <div class="legend-group">
+    <div class="li"><div class="li-dot" style="background:var(--auth)"></div>Аутентификация</div>
+    <div class="li"><div class="li-dot" style="background:var(--settings)"></div>Настройки</div>
+    <div class="li"><div class="li-dot" style="background:var(--subs)"></div>Подписки</div>
+    <div class="li"><div class="li-dot" style="background:var(--finance)"></div>Финансы</div>
+    <div class="li"><div class="li-dot" style="background:var(--ai)"></div>AI</div>
+  </div>
+  <div class="legend-sep"></div>
+  <span class="legend-label">Бейджи</span>
+  <div class="legend-group">
+    <div class="li"><span class="b pk">PK</span> Primary Key</div>
+    <div class="li"><span class="b fk">FK→</span> Foreign Key</div>
+    <div class="li"><span class="b unq">UNQ</span> Unique</div>
+    <div class="li"><span class="b soft">SOFT</span> Мягкое удаление</div>
+    <div class="li"><span class="b sys">SYS</span> NULL = системная</div>
+    <div class="li"><span class="b nul">null</span> Nullable</div>
+    <div class="li"><span class="b chk">CHECK</span> Ограничение</div>
+    <div class="li"><span class="b def">DEFAULT</span> Значение по умолч.</div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  БЛОК 1 · АУТЕНТИФИКАЦИЯ                        -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hdr">
+    <div class="section-bar" style="background:var(--auth)"></div>
+    <span class="section-name">Аутентификация</span>
+    <span class="section-cnt">4 таблицы</span>
+  </div>
+  <div class="grid">
+
+    <!-- users -->
+    <div class="card auth-card">
+      <div class="card-head">
+        <span class="card-name">users</span>
+        <span class="card-desc">— главная таблица пользователей</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span><span class="b def">gen_random_uuid()</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">email</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">password_hash</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span><span class="b chk">OAuth → null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">first_name</div>
+        <div class="cright"><span class="ctype">TEXT</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">last_name</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">is_active</div>
+        <div class="cright"><span class="ctype">BOOLEAN</span><span class="b def">DEFAULT true</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b def">now()</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">updated_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b def">now()</span></div>
+      </div>
+    </div>
+
+    <!-- auth_providers -->
+    <div class="card auth-card">
+      <div class="card-head">
+        <span class="card-name">auth_providers</span>
+        <span class="card-desc">— Google / Apple OAuth</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">provider</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'google','apple'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">provider_user_id</div>
+        <div class="cright"><span class="ctype">TEXT</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="constraint">UNIQUE (provider, provider_user_id)</div>
+    </div>
+
+    <!-- refresh_tokens -->
+    <div class="card auth-card">
+      <div class="card-head">
+        <span class="card-name">refresh_tokens</span>
+        <span class="card-desc">— JWT refresh токены</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">token_hash</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span><span class="b chk">хэш, не сам токен</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">device_id</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">expires_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">revoked_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b nul">null</span><span class="b chk">null=активен</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+    </div>
+
+    <!-- push_tokens -->
+    <div class="card auth-card">
+      <div class="card-head">
+        <span class="card-name">push_tokens</span>
+        <span class="card-desc">— FCM, несколько устройств</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">token</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">platform</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'ios','android'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">last_used_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  БЛОК 2 · НАСТРОЙКИ                             -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hdr">
+    <div class="section-bar" style="background:var(--settings)"></div>
+    <span class="section-name">Настройки</span>
+    <span class="section-cnt">3 таблицы</span>
+  </div>
+  <div class="grid">
+
+    <!-- currencies -->
+    <div class="card settings-card">
+      <div class="card-head">
+        <span class="card-name">currencies</span>
+        <span class="card-desc">— справочник ISO 4217</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">code</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b pk">PK</span><span class="b sys">SYS</span><span class="b chk">'USD','EUR'…</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">name</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'US Dollar'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">symbol</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'$', '€', '₽'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">symbol_position</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'before','after'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">decimal_places</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b def">DEFAULT 2</span><span class="b chk">JPY=0</span></div>
+      </div>
+    </div>
+
+    <!-- themes -->
+    <div class="card settings-card">
+      <div class="card-head">
+        <span class="card-name">themes</span>
+        <span class="card-desc">— 6 системных тем</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">name</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span><span class="b sys">SYS</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">is_pro</div>
+        <div class="cright"><span class="ctype">BOOLEAN</span><span class="b def">DEFAULT false</span><span class="b chk">light=free</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">sort_order</div>
+        <div class="cright"><span class="ctype">INT</span></div>
+      </div>
+      <div class="constraint">Темы: light · dark · midnight · forest · rose · ocean</div>
+    </div>
+
+    <!-- user_settings -->
+    <div class="card settings-card">
+      <div class="card-head">
+        <span class="card-name">user_settings</span>
+        <span class="card-desc">— настройки (1:1 с users)</span>
+      </div>
+      <div class="col r-pk r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">currency_code</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b fk">FK→currencies</span><span class="b def">'USD'</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">theme_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→themes</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">font_size</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'small','medium','large'</span><span class="b def">'medium'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">language</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b def">'en'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">week_starts_on</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b chk">0=вс · 1=пн</span><span class="b def">1</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">notifications_enabled</div>
+        <div class="cright"><span class="ctype">BOOLEAN</span><span class="b def">DEFAULT true</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">updated_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  БЛОК 3 · ПОДПИСКИ                              -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hdr">
+    <div class="section-bar" style="background:var(--subs)"></div>
+    <span class="section-name">Подписки</span>
+    <span class="section-cnt">3 таблицы</span>
+  </div>
+  <div class="grid">
+
+    <!-- subscriptions -->
+    <div class="card subs-card">
+      <div class="card-head">
+        <span class="card-name">subscriptions</span>
+        <span class="card-desc">— статус подписки (1:1)</span>
+      </div>
+      <div class="col r-pk r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">tier</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'free','pro'</span><span class="b def">'free'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">status</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'active','trialing','cancelled','expired','paused'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">store</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span><span class="b chk">'app_store','google_play','web'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">revenuecat_customer_id</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">product_id</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span><span class="b chk">'monthly_699'…</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">trial_ends_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">current_period_start</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">current_period_end</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b nul">null</span><span class="b chk">null=free навсегда</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">cancelled_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">updated_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+    </div>
+
+    <!-- subscription_events -->
+    <div class="card subs-card">
+      <div class="card-head">
+        <span class="card-name">subscription_events</span>
+        <span class="card-desc">— лог вебхуков RevenueCat</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">event_type</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'INITIAL_PURCHASE','RENEWAL','CANCELLATION'…</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">store</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">product_id</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">price_usd</div>
+        <div class="cright"><span class="ctype">NUMERIC(10,2)</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">revenuecat_event_id</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b unq">UNQ</span><span class="b nul">null</span><span class="b chk">дедупликация</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">raw_payload</div>
+        <div class="cright"><span class="ctype">JSONB</span><span class="b nul">null</span><span class="b chk">полный JSON</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+    </div>
+
+    <!-- free_tier_usage -->
+    <div class="card subs-card">
+      <div class="card-head">
+        <span class="card-name">free_tier_usage</span>
+        <span class="card-desc">— счётчики freemium по месяцам</span>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">year_month</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">формат 'YYYY-MM'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">transactions_count</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b def">DEFAULT 0</span><span class="b chk">лимит free: 50</span></div>
+      </div>
+      <div class="constraint">UNIQUE (user_id, year_month)</div>
+      <div class="constraint">Инкремент: INSERT … ON CONFLICT DO UPDATE SET count + 1</div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  БЛОК 4 · ФИНАНСЫ                               -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hdr">
+    <div class="section-bar" style="background:var(--finance)"></div>
+    <span class="section-name">Финансы</span>
+    <span class="section-cnt">4 таблицы</span>
+  </div>
+  <div class="grid">
+
+    <!-- categories -->
+    <div class="card finance-card">
+      <div class="card-head">
+        <span class="card-name">categories</span>
+        <span class="card-desc">— системные + пользовательские</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname nullable">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span><span class="b nul">null</span><span class="b sys">null=системная</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">name</div>
+        <div class="cright"><span class="ctype">TEXT</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">icon</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b def">DEFAULT '💰'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">color</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b def">'#6B7280'</span><span class="b chk">hex</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">type</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'expense','income','both'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">is_active</div>
+        <div class="cright"><span class="ctype">BOOLEAN</span><span class="b def">DEFAULT true</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">sort_order</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b def">DEFAULT 0</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="constraint">UNIQUE (user_id, name)</div>
+    </div>
+
+    <!-- transactions -->
+    <div class="card finance-card">
+      <div class="card-head">
+        <span class="card-name">transactions</span>
+        <span class="card-desc">— главная таблица продукта</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">category_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→categories</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">amount</div>
+        <div class="cright"><span class="ctype">NUMERIC(15,2)</span><span class="b chk">&gt; 0</span><span class="b chk">не float!</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">type</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'expense','income'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">note</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b nul">null</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">date</div>
+        <div class="cright"><span class="ctype">DATE</span><span class="b chk">выбирает пользователь</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">updated_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col r-soft">
+        <div class="cname nullable">deleted_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b soft">SOFT</span><span class="b nul">null</span><span class="b chk">null=активна</span></div>
+      </div>
+    </div>
+
+    <!-- spending_limits -->
+    <div class="card finance-card">
+      <div class="card-head">
+        <span class="card-name">spending_limits</span>
+        <span class="card-desc">— лимиты по категориям</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">category_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→categories</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">amount</div>
+        <div class="cright"><span class="ctype">NUMERIC(15,2)</span><span class="b chk">&gt; 0</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">period</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'monthly','weekly'</span><span class="b def">'monthly'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">updated_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="constraint">UNIQUE (user_id, category_id, period)</div>
+    </div>
+
+    <!-- limit_alerts -->
+    <div class="card finance-card">
+      <div class="card-head">
+        <span class="card-name">limit_alerts</span>
+        <span class="card-desc">— история алертов</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">spending_limit_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→spending_limits</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">threshold_percent</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b chk">80 или 100</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">period_start</div>
+        <div class="cright"><span class="ctype">DATE</span><span class="b chk">1-й день периода</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">alerted_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="constraint">UNIQUE (spending_limit_id, threshold_percent, period_start)</div>
+      <div class="constraint">Гарантия: один алерт на порог за период (ACID Consistency)</div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  БЛОК 5 · AI                                    -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-hdr">
+    <div class="section-bar" style="background:var(--ai)"></div>
+    <span class="section-name">AI Советник</span>
+    <span class="section-cnt">3 таблицы · один чат на пользователя</span>
+  </div>
+  <div class="grid">
+
+    <!-- ai_messages -->
+    <div class="card ai-card">
+      <div class="card-head">
+        <span class="card-name">ai_messages</span>
+        <span class="card-desc">— все сообщения чата</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span><span class="b chk">напрямую, без conversations</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">role</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">'user','assistant'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">prompt_template_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→ai_prompt_templates</span><span class="b nul">null</span><span class="b chk">null = ручной ввод</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">content</div>
+        <div class="cright"><span class="ctype">TEXT</span></div>
+      </div>
+      <div class="col">
+        <div class="cname nullable">tokens_used</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b nul">null</span><span class="b chk">стоимость запроса</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">created_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span></div>
+      </div>
+      <div class="col r-soft">
+        <div class="cname nullable">cleared_at</div>
+        <div class="cright"><span class="ctype">TIMESTAMPTZ</span><span class="b soft">SOFT</span><span class="b nul">null</span><span class="b chk">null = видно в чате</span></div>
+      </div>
+      <div class="constraint">Загрузка чата: WHERE user_id = $1 AND cleared_at IS NULL</div>
+      <div class="constraint">Очистить чат: UPDATE SET cleared_at = now() WHERE user_id = $1</div>
+    </div>
+
+    <!-- ai_usage -->
+    <div class="card ai-card">
+      <div class="card-head">
+        <span class="card-name">ai_usage</span>
+        <span class="card-desc">— дневной лимит запросов</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span></div>
+      </div>
+      <div class="col r-fk">
+        <div class="cname">user_id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b fk">FK→users</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">date</div>
+        <div class="cright"><span class="ctype">DATE</span><span class="b def">CURRENT_DATE</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">request_count</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b def">DEFAULT 0</span><span class="b chk">free лимит: 5/день</span></div>
+      </div>
+      <div class="constraint">UNIQUE (user_id, date)</div>
+      <div class="constraint">Инкремент: INSERT … ON CONFLICT DO UPDATE SET count + 1</div>
+      <div class="constraint">Pro: проверку пропускаем, но запись ведём (аналитика стоимости)</div>
+    </div>
+
+    <!-- ai_prompt_templates -->
+    <div class="card ai-card">
+      <div class="card-head">
+        <span class="card-name">ai_prompt_templates</span>
+        <span class="card-desc">— заготовленные кнопки-вопросы</span>
+      </div>
+      <div class="col r-pk">
+        <div class="cname">id</div>
+        <div class="cright"><span class="ctype">UUID</span><span class="b pk">PK</span><span class="b sys">SYS</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">label</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">текст на кнопке</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">prompt</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b chk">полный текст → AI</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">icon</div>
+        <div class="cright"><span class="ctype">TEXT</span><span class="b def">DEFAULT '💡'</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">sort_order</div>
+        <div class="cright"><span class="ctype">INT</span><span class="b def">DEFAULT 0</span></div>
+      </div>
+      <div class="col">
+        <div class="cname">is_active</div>
+        <div class="cright"><span class="ctype">BOOLEAN</span><span class="b def">DEFAULT true</span></div>
+      </div>
+      <div class="constraint">Seed: "Инсайты за месяц" · "Как откладывать?" · "Куда уходят деньги?"</div>
+      <div class="constraint">Обновляется без релиза приложения — данные, не код</div>
+    </div>
+
+    <!-- INDEXES -->
+    <div class="idx-card">
+      <h3>Индексы (производительность)</h3>
+      <div class="idx-list">
+        <div class="idx-item"><span>transactions</span>(user_id, date DESC) WHERE deleted_at IS NULL</div>
+        <div class="idx-item"><span>transactions</span>(user_id, category_id) WHERE deleted_at IS NULL</div>
+        <div class="idx-item"><span>categories</span>(user_id) WHERE is_active = true</div>
+        <div class="idx-item"><span>spending_limits</span>(user_id)</div>
+        <div class="idx-item"><span>ai_messages</span>(user_id, created_at) WHERE cleared_at IS NULL</div>
+        <div class="idx-item"><span>ai_usage</span>(user_id, date)</div>
+        <div class="idx-item"><span>subscription_events</span>(user_id, created_at DESC)</div>
+        <div class="idx-item"><span>free_tier_usage</span>(user_id, year_month)</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════ -->
+<!--  FK MAP — все связи в одном месте               -->
+<!-- ════════════════════════════════════════════════ -->
+<div class="fk-map">
+  <h2>Карта внешних ключей — 18 связей</h2>
+  <div class="fk-columns">
+
+    <div class="fk-row"><span class="fk-tbl">auth_providers</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">refresh_tokens</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">push_tokens</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">user_settings</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span><span class="fk-note">1:1</span></div>
+    <div class="fk-row"><span class="fk-tbl">user_settings</span><span class="fk-col">.currency_code</span><span class="fk-arr">──►</span><span class="fk-ref">currencies.code</span></div>
+    <div class="fk-row"><span class="fk-tbl">user_settings</span><span class="fk-col">.theme_id</span><span class="fk-arr">──►</span><span class="fk-ref">themes.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">subscriptions</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span><span class="fk-note">1:1</span></div>
+    <div class="fk-row"><span class="fk-tbl">subscription_events</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">free_tier_usage</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">categories</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span><span class="fk-note">null = системная</span></div>
+    <div class="fk-row"><span class="fk-tbl">transactions</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">transactions</span><span class="fk-col">.category_id</span><span class="fk-arr">──►</span><span class="fk-ref">categories.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">spending_limits</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">spending_limits</span><span class="fk-col">.category_id</span><span class="fk-arr">──►</span><span class="fk-ref">categories.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">limit_alerts</span><span class="fk-col">.spending_limit_id</span><span class="fk-arr">──►</span><span class="fk-ref">spending_limits.id</span></div>
+    <div class="fk-row"><span class="fk-tbl">ai_messages</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span><span class="fk-note">один чат на пользователя</span></div>
+    <div class="fk-row"><span class="fk-tbl">ai_messages</span><span class="fk-col">.prompt_template_id</span><span class="fk-arr">──►</span><span class="fk-ref">ai_prompt_templates.id</span><span class="fk-note">null = ручной ввод</span></div>
+    <div class="fk-row"><span class="fk-tbl">ai_usage</span><span class="fk-col">.user_id</span><span class="fk-arr">──►</span><span class="fk-ref">users.id</span></div>
+
+  </div>
+</div>
+
+</body>
+</html>
