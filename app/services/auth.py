@@ -67,7 +67,9 @@ async def _create_tokens_for_user(
 async def _init_user_defaults(user: User, db: AsyncSession) -> None:
     theme_id = await _get_default_theme_id(db)
     db.add(UserSettings(user_id=user.id, theme_id=theme_id))
-    db.add(Subscription(user_id=user.id, tier="free", status="active"))
+    sub = Subscription(user_id=user.id, tier="free", status="active")
+    db.add(sub)
+    user.subscription = sub  # в памяти, без lazy-load запроса
 
 
 # ── Register ──────────────────────────────────────────────────────
@@ -96,7 +98,10 @@ async def register(data: RegisterRequest, db: AsyncSession) -> AuthResponse:
 # ── Login ─────────────────────────────────────────────────────────
 
 async def login(data: LoginRequest, db: AsyncSession) -> AuthResponse:
-    result = await db.execute(select(User).where(User.email == data.email))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(User).where(User.email == data.email).options(selectinload(User.subscription))
+    )
     user = result.scalar_one_or_none()
 
     if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
@@ -143,7 +148,10 @@ async def google_auth(data: GoogleAuthRequest, db: AsyncSession) -> AuthResponse
 
     if provider:
         # Пользователь уже есть — просто логиним
-        result = await db.execute(select(User).where(User.id == provider.user_id))
+        from sqlalchemy.orm import selectinload
+        result = await db.execute(
+            select(User).where(User.id == provider.user_id).options(selectinload(User.subscription))
+        )
         user = result.scalar_one()
     else:
         # Новый пользователь — создаём
@@ -191,7 +199,10 @@ async def refresh_tokens(raw_token: str, db: AsyncSession) -> AuthResponse:
     # Ротация: отзываем старый, выдаём новый
     db_token.revoked_at = datetime.now(UTC)
 
-    result = await db.execute(select(User).where(User.id == db_token.user_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(User).where(User.id == db_token.user_id).options(selectinload(User.subscription))
+    )
     user = result.scalar_one()
 
     access_token, new_refresh_token = await _create_tokens_for_user(user, db, db_token.device_id)

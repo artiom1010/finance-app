@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, health
+from app.api.v1 import auth, categories, health, transactions, users
 from app.core.config import settings
 
 app = FastAPI(
@@ -25,9 +25,6 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1", tags=["system"])
 
 app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
-
-# Сюда будем добавлять по мере разработки:
-# app.include_router(transactions.router, prefix="/api/v1", tags=["transactions"])
-# app.include_router(categories.router,   prefix="/api/v1", tags=["categories"])
-# app.include_router(limits.router,       prefix="/api/v1", tags=["limits"])
-# app.include_router(ai.router,           prefix="/api/v1", tags=["ai"])
+app.include_router(users.router, prefix="/api/v1", tags=["users"])
+app.include_router(transactions.router, prefix="/api/v1", tags=["transactions"])
+app.include_router(categories.router, prefix="/api/v1", tags=["categories"])
