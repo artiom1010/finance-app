@@ -1,12 +1,13 @@
 import uuid
 
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.telegram import fmt_first_category, notify
 from app.models.transaction import Category
 from app.models.user import User
-from app.schemas.category import CategoryCreate, CategoryResponse
+from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 
 
 async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]:
@@ -23,8 +24,12 @@ async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]
 
 
 async def create_category(data: CategoryCreate, user: User, db: AsyncSession) -> CategoryResponse:
-    if data.type not in ("expense", "income", "both"):
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="type must be expense, income or both")
+    count_result = await db.execute(
+        select(func.count()).select_from(Category).where(
+            Category.user_id == user.id, Category.is_active == True
+        )
+    )
+    is_first = count_result.scalar() == 0
 
     category = Category(
         user_id=user.id,
@@ -34,6 +39,45 @@ async def create_category(data: CategoryCreate, user: User, db: AsyncSession) ->
         type=data.type,
     )
     db.add(category)
+    await db.flush()
+
+    if is_first:
+        await notify(fmt_first_category(user.email, data.name))
+
+    return CategoryResponse.model_validate(category)
+
+
+async def update_category(category_id: uuid.UUID, data: CategoryUpdate, user: User, db: AsyncSession) -> CategoryResponse:
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            Category.user_id == user.id,  # нельзя редактировать системные
+            Category.is_active == True,
+        )
+    )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(category, field, value)
+
+    await db.flush()
+    return CategoryResponse.model_validate(category)
+
+
+async def restore_category(category_id: uuid.UUID, user: User, db: AsyncSession) -> CategoryResponse:
+    result = await db.execute(
+        select(Category).where(
+            Category.id == category_id,
+            Category.user_id == user.id,
+            Category.is_active == False,
+        )
+    )
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted category not found")
+    category.is_active = True
     await db.flush()
     return CategoryResponse.model_validate(category)
 

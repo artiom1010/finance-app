@@ -1,4 +1,6 @@
 import uuid
+from datetime import date as Date
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,7 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.transaction import TransactionCreate, TransactionListResponse, TransactionResponse, TransactionUpdate
+from app.schemas.transaction import (
+    TransactionCreate,
+    TransactionListResponse,
+    TransactionResponse,
+    TransactionStatsResponse,
+    TransactionUpdate,
+)
 from app.services import transactions as tx_service
 
 router = APIRouter(prefix="/transactions")
@@ -21,15 +29,43 @@ async def create_transaction(
     return await tx_service.create_transaction(data, user, db)
 
 
+@router.get("/stats", response_model=TransactionStatsResponse)
+async def get_stats(
+    date_from: Date | None = Query(None),
+    date_to: Date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Статистика: суммы доходов/расходов, баланс, разбивка по категориям."""
+    return await tx_service.get_stats(user, db, date_from=date_from, date_to=date_to)
+
+
 @router.get("", response_model=TransactionListResponse)
 async def list_transactions(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     type: str | None = Query(None, pattern="^(expense|income)$"),
+    date_from: Date | None = Query(None),
+    date_to: Date | None = Query(None),
+    category_id: uuid.UUID | None = Query(None),
+    amount_min: Decimal | None = Query(None, gt=0),
+    amount_max: Decimal | None = Query(None, gt=0),
+    search: str | None = Query(None, max_length=200),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    return await tx_service.get_transactions(user, db, skip=skip, limit=limit, type_filter=type)
+    return await tx_service.get_transactions(
+        user, db,
+        skip=skip,
+        limit=limit,
+        type_filter=type,
+        date_from=date_from,
+        date_to=date_to,
+        category_id=category_id,
+        amount_min=amount_min,
+        amount_max=amount_max,
+        search=search,
+    )
 
 
 @router.get("/{tx_id}", response_model=TransactionResponse)
@@ -49,6 +85,16 @@ async def update_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     return await tx_service.update_transaction(tx_id, data, user, db)
+
+
+@router.post("/{tx_id}/restore", response_model=TransactionResponse)
+async def restore_transaction(
+    tx_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Восстановить удалённую транзакцию."""
+    return await tx_service.restore_transaction(tx_id, user, db)
 
 
 @router.delete("/{tx_id}", status_code=204)

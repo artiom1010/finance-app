@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FinanceAI API Tester</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: monospace; background: #0f0f0f; color: #e0e0e0; padding: 20px; }
+    h1 { color: #7c3aed; margin-bottom: 20px; font-size: 20px; }
+    h2 { color: #a78bfa; font-size: 14px; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 16px; }
+
+    .token-bar { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .token-bar span { color: #6b7280; font-size: 12px; }
+    #token-display { color: #22c55e; font-size: 11px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    input, select, textarea {
+      width: 100%; padding: 8px; margin-bottom: 8px;
+      background: #0f0f0f; border: 1px solid #333; border-radius: 4px;
+      color: #e0e0e0; font-family: monospace; font-size: 13px;
+    }
+    input:focus, select:focus { outline: none; border-color: #7c3aed; }
+
+    button {
+      padding: 8px 16px; border: none; border-radius: 4px;
+      cursor: pointer; font-family: monospace; font-size: 13px; font-weight: bold;
+    }
+    .btn-primary { background: #7c3aed; color: white; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .btn-success { background: #16a34a; color: white; }
+    .btn-success:hover { background: #15803d; }
+    .btn-info { background: #0369a1; color: white; }
+    .btn-info:hover { background: #075985; }
+
+    .response {
+      margin-top: 10px; padding: 10px;
+      background: #0a0a0a; border-radius: 4px;
+      font-size: 12px; white-space: pre-wrap; word-break: break-all;
+      max-height: 200px; overflow-y: auto;
+      border-left: 3px solid #333;
+    }
+    .response.ok { border-color: #22c55e; color: #86efac; }
+    .response.err { border-color: #ef4444; color: #fca5a5; }
+
+    .row { display: flex; gap: 8px; }
+    .row input { flex: 1; }
+    label { font-size: 12px; color: #6b7280; margin-bottom: 4px; display: block; }
+    .divider { border: none; border-top: 1px solid #2a2a2a; margin: 12px 0; }
+    #categories-list { margin-top: 8px; }
+    .category-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 6px 8px; background: #0f0f0f; border-radius: 4px; margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .category-item button { padding: 2px 8px; font-size: 11px; }
+    .tx-item {
+      padding: 8px; background: #0f0f0f; border-radius: 4px; margin-bottom: 6px;
+      font-size: 12px; border-left: 3px solid #7c3aed;
+    }
+    .tx-item .tx-header { display: flex; justify-content: space-between; }
+    .tx-item .tx-meta { color: #6b7280; margin-top: 2px; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; }
+    .badge.expense { background: #7f1d1d; color: #fca5a5; }
+    .badge.income { background: #14532d; color: #86efac; }
+  </style>
+</head>
+<body>
+
+<h1>⚡ FinanceAI API Tester</h1>
+
+<!-- Token Bar -->
+<div class="token-bar">
+  <span>TOKEN:</span>
+  <div id="token-display">не авторизован</div>
+  <button class="btn-danger" style="padding:4px 10px;font-size:11px;" onclick="clearToken()">Выйти</button>
+</div>
+
+<div class="grid">
+
+  <!-- AUTH -->
+  <div class="card">
+    <h2>🔐 Auth</h2>
+    <label>Email</label>
+    <input id="auth-email" type="email" value="test@test.com">
+    <label>Пароль</label>
+    <input id="auth-password" type="password" value="password123">
+    <label>Имя (только для регистрации)</label>
+    <input id="auth-name" value="Artem">
+
+    <div class="row" style="margin-top:4px;">
+      <button class="btn-primary" onclick="register()">Регистрация</button>
+      <button class="btn-success" onclick="login()">Войти</button>
+    </div>
+
+    <hr class="divider">
+    <label>Обновить токен</label>
+    <button class="btn-info" style="width:100%" onclick="refreshToken()">Refresh Token</button>
+    <button class="btn-danger" style="width:100%;margin-top:6px" onclick="logout()">Logout</button>
+
+    <div id="auth-response" class="response" style="display:none"></div>
+  </div>
+
+  <!-- USER -->
+  <div class="card">
+    <h2>👤 Профиль</h2>
+    <button class="btn-info" style="width:100%" onclick="getMe()">GET /users/me</button>
+
+    <hr class="divider">
+    <label>Изменить имя</label>
+    <input id="update-firstname" placeholder="Новое имя">
+    <input id="update-lastname" placeholder="Новая фамилия">
+    <button class="btn-primary" style="width:100%" onclick="updateMe()">Обновить профиль</button>
+
+    <hr class="divider">
+    <button class="btn-info" style="width:100%" onclick="healthCheck()">GET /health</button>
+
+    <div id="user-response" class="response" style="display:none"></div>
+  </div>
+
+  <!-- CATEGORIES -->
+  <div class="card">
+    <h2>🗂 Категории</h2>
+    <button class="btn-info" style="width:100%;margin-bottom:8px" onclick="getCategories()">Загрузить категории</button>
+    <div id="categories-list"></div>
+
+    <hr class="divider">
+    <label>Создать свою категорию</label>
+    <input id="cat-name" placeholder="Название">
+    <div class="row">
+      <input id="cat-icon" placeholder="Иконка (emoji)" value="💡" style="flex:0.5">
+      <input id="cat-color" placeholder="Цвет" value="#7c3aed" style="flex:0.5">
+    </div>
+    <select id="cat-type">
+      <option value="expense">expense</option>
+      <option value="income">income</option>
+      <option value="both">both</option>
+    </select>
+    <button class="btn-success" style="width:100%" onclick="createCategory()">Создать</button>
+
+    <div id="cat-response" class="response" style="display:none"></div>
+  </div>
+
+  <!-- TRANSACTIONS -->
+  <div class="card">
+    <h2>💸 Транзакции</h2>
+    <label>Создать транзакцию</label>
+    <select id="tx-category">
+      <option value="">-- сначала загрузи категории --</option>
+    </select>
+    <div class="row">
+      <input id="tx-amount" type="number" placeholder="Сумма" value="500" style="height:44px;font-size:18px;font-weight:bold">
+      <select id="tx-type">
+        <option value="expense">expense</option>
+        <option value="income">income</option>
+      </select>
+    </div>
+    <input id="tx-note" placeholder="Заметка (необязательно)">
+    <input id="tx-date" type="date">
+    <button class="btn-success" style="width:100%" onclick="createTransaction()">Создать</button>
+
+    <hr class="divider">
+    <div class="row">
+      <button class="btn-info" style="flex:1" onclick="getTransactions()">Загрузить все</button>
+      <select id="tx-filter" style="flex:1;margin-bottom:0">
+        <option value="">все типы</option>
+        <option value="expense">только expense</option>
+        <option value="income">только income</option>
+      </select>
+    </div>
+
+    <div id="tx-summary" style="margin-top:8px"></div>
+    <div id="tx-list" style="margin-top:8px"></div>
+    <div id="tx-response" class="response" style="display:none"></div>
+  </div>
+
+</div>
+
+<!-- AI ADVISOR -->
+<div class="card" style="margin-top:16px">
+  <h2>🤖 AI Советник</h2>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="btn-info" onclick="loadTemplates()">Загрузить шаблоны</button>
+    <button class="btn-info" onclick="loadChat()">Загрузить чат</button>
+    <button class="btn-danger" onclick="clearAiChat()">Очистить чат</button>
+    <span id="ai-usage" style="color:#6b7280;font-size:12px;align-self:center"></span>
+  </div>
+
+  <div id="ai-templates" style="margin-bottom:10px"></div>
+
+  <div id="ai-chat" style="background:#0a0a0a;border-radius:6px;padding:10px;min-height:80px;max-height:300px;overflow-y:auto;margin-bottom:10px">
+    <div style="color:#6b7280;font-size:12px">Нажми "Загрузить чат"</div>
+  </div>
+
+  <input type="hidden" id="ai-template-id">
+  <div style="display:flex;gap:8px">
+    <input id="ai-input" placeholder="Напиши вопрос или выбери шаблон выше..." style="flex:1;margin-bottom:0">
+    <button id="ai-send-btn" class="btn-success" onclick="sendAiMessage()">Отправить</button>
+  </div>
+  <div id="ai-response" class="response" style="display:none"></div>
+</div>
+
+<script>
+  const BASE = 'http://localhost:8000/api/v1';
+  let token = localStorage.getItem('token') || '';
+  let refreshTokenValue = localStorage.getItem('refreshToken') || '';
+  let categories = [];
+
+  // Установить сегодняшнюю дату
+  document.getElementById('tx-date').value = new Date().toISOString().split('T')[0];
+
+  function updateTokenDisplay() {
+    const el = document.getElementById('token-display');
+    el.textContent = token ? token.substring(0, 60) + '...' : 'не авторизован';
+  }
+  updateTokenDisplay();
+
+  function showResponse(id, data, ok) {
+    const el = document.getElementById(id);
+    el.style.display = 'block';
+    el.textContent = JSON.stringify(data, null, 2);
+    el.className = 'response ' + (ok ? 'ok' : 'err');
+  }
+
+  function headers() {
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+    };
+  }
+
+  async function request(method, path, body, responseId) {
+    try {
+      const res = await fetch(BASE + path, {
+        method,
+        headers: headers(),
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const data = await res.json().catch(() => ({}));
+      if (responseId) showResponse(responseId, data, res.ok);
+      return { ok: res.ok, data, status: res.status };
+    } catch (e) {
+      if (responseId) showResponse(responseId, { error: e.message }, false);
+      return { ok: false, data: null };
+    }
+  }
+
+  function saveTokens(data) {
+    token = data.access_token;
+    refreshTokenValue = data.refresh_token;
+    localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', refreshTokenValue);
+    updateTokenDisplay();
+  }
+
+  function clearToken() {
+    token = ''; refreshTokenValue = '';
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    updateTokenDisplay();
+  }
+
+  async function register() {
+    const r = await request('POST', '/auth/register', {
+      email: document.getElementById('auth-email').value,
+      password: document.getElementById('auth-password').value,
+      first_name: document.getElementById('auth-name').value,
+      last_name: ''
+    }, 'auth-response');
+    if (r.ok) saveTokens(r.data);
+  }
+
+  async function login() {
+    const r = await request('POST', '/auth/login', {
+      email: document.getElementById('auth-email').value,
+      password: document.getElementById('auth-password').value
+    }, 'auth-response');
+    if (r.ok) saveTokens(r.data);
+  }
+
+  async function refreshToken() {
+    if (!refreshTokenValue) { alert('Нет refresh токена — сначала войди'); return; }
+    const r = await request('POST', '/auth/refresh', { refresh_token: refreshTokenValue }, 'auth-response');
+    if (r.ok) saveTokens(r.data);
+  }
+
+  async function logout() {
+    if (!refreshTokenValue) { alert('Нет refresh токена'); return; }
+    await request('POST', '/auth/logout', { refresh_token: refreshTokenValue }, 'auth-response');
+    clearToken();
+  }
+
+  async function getMe() {
+    await request('GET', '/users/me', null, 'user-response');
+  }
+
+  async function updateMe() {
+    const body = {};
+    const fn = document.getElementById('update-firstname').value;
+    const ln = document.getElementById('update-lastname').value;
+    if (fn) body.first_name = fn;
+    if (ln) body.last_name = ln;
+    await request('PATCH', '/users/me', body, 'user-response');
+  }
+
+  async function healthCheck() {
+    const res = await fetch('http://localhost:8000/api/v1/health');
+    const data = await res.json();
+    showResponse('user-response', data, res.ok);
+  }
+
+  async function getCategories() {
+    const r = await request('GET', '/categories', null, 'cat-response');
+    if (!r.ok) return;
+    categories = r.data;
+
+    // Обновляем список для транзакций
+    const sel = document.getElementById('tx-category');
+    sel.innerHTML = categories.map(c =>
+      `<option value="${c.id}">${c.icon} ${c.name} (${c.type})</option>`
+    ).join('');
+
+    // Рендерим список
+    const list = document.getElementById('categories-list');
+    list.innerHTML = categories.map(c => `
+      <div class="category-item">
+        <span>${c.icon} ${c.name} <span style="color:#6b7280">(${c.type})</span></span>
+        ${c.user_id ? `<button class="btn-danger" onclick="deleteCategory('${c.id}')">✕</button>` : '<span style="color:#6b7280;font-size:11px">системная</span>'}
+      </div>
+    `).join('');
+  }
+
+  async function createCategory() {
+    const r = await request('POST', '/categories', {
+      name: document.getElementById('cat-name').value,
+      icon: document.getElementById('cat-icon').value,
+      color: document.getElementById('cat-color').value,
+      type: document.getElementById('cat-type').value
+    }, 'cat-response');
+    if (r.ok) getCategories();
+  }
+
+  async function deleteCategory(id) {
+    await request('DELETE', '/categories/' + id, null, 'cat-response');
+    getCategories();
+  }
+
+  async function createTransaction() {
+    const catId = document.getElementById('tx-category').value;
+    if (!catId) { alert('Сначала загрузи категории'); return; }
+    const r = await request('POST', '/transactions', {
+      category_id: catId,
+      amount: parseFloat(document.getElementById('tx-amount').value),
+      type: document.getElementById('tx-type').value,
+      note: document.getElementById('tx-note').value || null,
+      date: document.getElementById('tx-date').value
+    }, 'tx-response');
+    if (r.ok) getTransactions();
+  }
+
+  async function getTransactions() {
+    const filter = document.getElementById('tx-filter').value;
+    const url = '/transactions?limit=50' + (filter ? '&type=' + filter : '');
+    const r = await request('GET', url, null, 'tx-response');
+    if (!r.ok) return;
+
+    const summary = document.getElementById('tx-summary');
+    const items = r.data.items || [];
+
+    const income  = items.filter(t => t.type === 'income').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const expense = items.filter(t => t.type === 'expense').reduce((s, t) => s + parseFloat(t.amount), 0);
+    const balance = income - expense;
+    const fmt = n => n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    summary.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div style="background:#14532d;border-radius:6px;padding:10px;text-align:center">
+          <div style="color:#86efac;font-size:11px;margin-bottom:4px">ДОХОДЫ</div>
+          <div style="color:#86efac;font-size:15px;font-weight:bold">+${fmt(income)}</div>
+        </div>
+        <div style="background:#7f1d1d;border-radius:6px;padding:10px;text-align:center">
+          <div style="color:#fca5a5;font-size:11px;margin-bottom:4px">РАСХОДЫ</div>
+          <div style="color:#fca5a5;font-size:15px;font-weight:bold">-${fmt(expense)}</div>
+        </div>
+        <div style="background:${balance >= 0 ? '#1e3a5f' : '#3b1f1f'};border-radius:6px;padding:10px;text-align:center">
+          <div style="color:#93c5fd;font-size:11px;margin-bottom:4px">БАЛАНС</div>
+          <div style="color:${balance >= 0 ? '#93c5fd' : '#fca5a5'};font-size:15px;font-weight:bold">${balance >= 0 ? '+' : ''}${fmt(balance)}</div>
+        </div>
+      </div>
+      <div style="color:#6b7280;font-size:11px;margin-bottom:6px">Показано: ${items.length} из ${r.data.total} транзакций</div>
+    `;
+
+    const list = document.getElementById('tx-list');
+    if (!items.length) { list.innerHTML = '<div style="color:#6b7280;font-size:12px">Транзакций нет</div>'; return; }
+
+    list.innerHTML = items.map(tx => `
+      <div class="tx-item">
+        <div class="tx-header">
+          <span>${tx.category.icon} ${tx.category.name}</span>
+          <span>
+            <span class="badge ${tx.type}">${tx.type}</span>
+            <strong style="margin-left:6px">${tx.amount}</strong>
+            <button class="btn-danger" style="margin-left:8px;padding:1px 6px;font-size:11px" onclick="deleteTransaction('${tx.id}')">✕</button>
+          </span>
+        </div>
+        <div class="tx-meta">${tx.date}${tx.note ? ' · ' + tx.note : ''}</div>
+      </div>
+    `).join('');
+  }
+
+  async function deleteTransaction(id) {
+    await request('DELETE', '/transactions/' + id, null, 'tx-response');
+    getTransactions();
+  }
+
+  // ── AI ────────────────────────────────────────────────
+  async function loadTemplates() {
+    const r = await request('GET', '/ai/templates', null, 'ai-response');
+    if (!r.ok) return;
+    const container = document.getElementById('ai-templates');
+    container.innerHTML = r.data.map(t => `
+      <button class="btn-info" style="margin:3px;font-size:12px" onclick="useTemplate('${t.id}', ${JSON.stringify(t.prompt).replace(/'/g, "&#39;")})">
+        ${t.icon} ${t.label}
+      </button>
+    `).join('');
+  }
+
+  function useTemplate(id, prompt) {
+    document.getElementById('ai-input').value = prompt;
+    document.getElementById('ai-template-id').value = id;
+  }
+
+  async function loadChat() {
+    const r = await request('GET', '/ai/chat', null, 'ai-response');
+    if (!r.ok) return;
+    renderChat(r.data);
+  }
+
+  function renderChat(data) {
+    const { messages, requests_today, daily_limit } = data;
+    const limitText = daily_limit === -1 ? '∞' : daily_limit;
+    document.getElementById('ai-usage').textContent = `Запросов сегодня: ${requests_today} / ${limitText}`;
+
+    const chat = document.getElementById('ai-chat');
+    if (!messages.length) { chat.innerHTML = '<div style="color:#6b7280;font-size:12px">Чат пуст</div>'; return; }
+
+    chat.innerHTML = messages.map(m => `
+      <div style="margin-bottom:10px;padding:8px;border-radius:6px;background:${m.role === 'user' ? '#1e1b4b' : '#1a2e1a'};border-left:3px solid ${m.role === 'user' ? '#7c3aed' : '#16a34a'}">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:4px">${m.role === 'user' ? '👤 Ты' : '🤖 AI'} · ${new Date(m.created_at).toLocaleTimeString()}</div>
+        <div style="font-size:13px;white-space:pre-wrap">${m.content}</div>
+      </div>
+    `).join('');
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  async function sendAiMessage() {
+    const message = document.getElementById('ai-input').value.trim();
+    if (!message) return;
+    const templateId = document.getElementById('ai-template-id').value;
+
+    const body = { message };
+    if (templateId) body.prompt_template_id = templateId;
+
+    document.getElementById('ai-send-btn').disabled = true;
+    document.getElementById('ai-send-btn').textContent = 'Отправка...';
+
+    const r = await request('POST', '/ai/ask', body, 'ai-response');
+
+    document.getElementById('ai-send-btn').disabled = false;
+    document.getElementById('ai-send-btn').textContent = 'Отправить';
+
+    if (r.ok) {
+      document.getElementById('ai-input').value = '';
+      document.getElementById('ai-template-id').value = '';
+      loadChat();
+    }
+  }
+
+  async function clearAiChat() {
+    if (!confirm('Очистить историю чата?')) return;
+    await request('DELETE', '/ai/chat', null, 'ai-response');
+    loadChat();
+  }
+</script>
+</body>
+</html>

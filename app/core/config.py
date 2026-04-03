@@ -24,8 +24,15 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str = ""
 
+    # Apple Sign In
+    apple_bundle_id: str = ""   # com.yourcompany.yourapp
+
     # AI
     anthropic_api_key: str = ""
+
+    # Telegram logging
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
     @property
     def database_url(self) -> str:

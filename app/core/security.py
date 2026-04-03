@@ -1,3 +1,4 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from jose import JWTError, jwt
@@ -36,10 +37,14 @@ def create_refresh_token(user_id: str) -> str:
         days=settings.jwt_refresh_token_expire_days
     )
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "type": "refresh"},
+        {"sub": user_id, "exp": expire, "type": "refresh", "jti": str(uuid.uuid4())},
         settings.jwt_secret_key,
         algorithm=settings.jwt_algorithm,
     )
+
+
+class TokenExpiredError(Exception):
+    pass
 
 
 def decode_token(token: str) -> dict | None:
@@ -49,5 +54,7 @@ def decode_token(token: str) -> dict | None:
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
+    except jwt.ExpiredSignatureError:
+        raise TokenExpiredError()
     except JWTError:
         return None

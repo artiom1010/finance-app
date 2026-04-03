@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.security import decode_token
+from app.core.security import TokenExpiredError, decode_token
 from app.models.user import Subscription, User
 
 bearer_scheme = HTTPBearer()
@@ -27,12 +27,19 @@ async def get_current_user(
 ) -> User:
     """Проверяет access токен и возвращает пользователя."""
     token = credentials.credentials
-    payload = decode_token(token)
+    try:
+        payload = decode_token(token)
+    except TokenExpiredError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="token_expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if not payload or payload.get("type") != "access":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="invalid_token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
