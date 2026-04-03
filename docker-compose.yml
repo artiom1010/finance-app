@@ -10,10 +10,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # Первая миграция накатывается автоматически при первом запуске
-      - ./migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql
     ports:
-      - "5432:5432"          # только для локальной разработки
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -25,15 +23,14 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    environment:
+      POSTGRES_HOST: postgres   # внутри docker сети — имя сервиса
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-    # Горячая перезагрузка при разработке
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app                # монтируем код для --reload
+    # CMD из Dockerfile: alembic upgrade head && uvicorn ...
 
 volumes:
   postgres_data:
