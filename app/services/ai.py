@@ -110,7 +110,7 @@ async def ask(data: AiAskRequest, user: User, db: AsyncSession) -> AiMessageResp
     await db.flush()
 
     # Логируем диалог и лимиты в Telegram
-    await notify(fmt_ai_dialog(user.email, data.message, tokens_used))
+    await notify(fmt_ai_dialog(user.email, data.message, assistant_content, tokens_used))
     if tier != "pro":
         new_count, _ = await _get_usage_info(user, db)
         if new_count >= FREE_DAILY_LIMIT:

@@ -45,12 +45,14 @@ def fmt_first_category(email: str, name: str) -> str:
     return f"📂 <b>Первая своя категория</b>\n📧 {email}\n🏷 {name}"
 
 
-def fmt_ai_dialog(email: str, question: str, tokens: int) -> str:
+def fmt_ai_dialog(email: str, question: str, answer: str, tokens: int) -> str:
     q = question[:300] + "…" if len(question) > 300 else question
+    a = answer[:500] + "…" if len(answer) > 500 else answer
     return (
         f"🤖 <b>AI запрос</b>\n"
         f"📧 {email}\n"
         f"❓ <i>{q}</i>\n"
+        f"💬 {a}\n"
         f"🔢 Токены: {tokens}"
     )
 
