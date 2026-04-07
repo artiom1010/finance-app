@@ -2,7 +2,10 @@ import uuid
 from datetime import date as Date
 from decimal import Decimal
 
+import io
+
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -104,3 +107,20 @@ async def delete_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     await tx_service.delete_transaction(tx_id, user, db)
+
+
+@router.get("/export")
+async def export_transactions(
+    date_from: Date | None = Query(None),
+    date_to: Date | None = Query(None),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Экспорт транзакций в CSV."""
+    csv_content = await tx_service.export_csv(user, db, date_from=date_from, date_to=date_to)
+    filename = f"transactions_{user.id}.csv"
+    return StreamingResponse(
+        io.StringIO(csv_content),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )

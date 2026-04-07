@@ -1,3 +1,5 @@
+import csv
+import io
 import uuid
 from datetime import UTC, datetime
 from datetime import date as Date
@@ -235,3 +237,38 @@ async def get_stats(
         period_start=date_from,
         period_end=date_to,
     )
+
+
+async def export_csv(
+    user: User,
+    db: AsyncSession,
+    date_from: Date | None = None,
+    date_to: Date | None = None,
+) -> str:
+    """Возвращает CSV-строку всех транзакций пользователя."""
+    where = [Transaction.user_id == user.id, Transaction.deleted_at.is_(None)]
+    if date_from:
+        where.append(Transaction.date >= date_from)
+    if date_to:
+        where.append(Transaction.date <= date_to)
+
+    result = await db.execute(
+        select(Transaction)
+        .where(*where)
+        .options(selectinload(Transaction.category))
+        .order_by(Transaction.date.desc(), Transaction.created_at.desc())
+    )
+    transactions = result.scalars().all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["date", "type", "amount", "category", "note"])
+    for tx in transactions:
+        writer.writerow([
+            tx.date.isoformat(),
+            tx.type,
+            str(tx.amount),
+            tx.category.name if tx.category else "",
+            tx.note or "",
+        ])
+    return output.getvalue()
