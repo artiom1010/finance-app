@@ -51,7 +51,7 @@ async def update_category(category_id: uuid.UUID, data: CategoryUpdate, user: Us
     result = await db.execute(
         select(Category).where(
             Category.id == category_id,
-            Category.user_id == user.id,  # нельзя редактировать системные
+            or_(Category.user_id == user.id, Category.user_id.is_(None)),
             Category.is_active == True,
         )
     )
@@ -84,7 +84,10 @@ async def restore_category(category_id: uuid.UUID, user: User, db: AsyncSession)
 
 async def delete_category(category_id: uuid.UUID, user: User, db: AsyncSession) -> None:
     result = await db.execute(
-        select(Category).where(Category.id == category_id, Category.user_id == user.id)
+        select(Category).where(
+            Category.id == category_id,
+            or_(Category.user_id == user.id, Category.user_id.is_(None)),
+        )
     )
     category = result.scalar_one_or_none()
     if not category:
