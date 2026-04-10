@@ -35,9 +35,14 @@ app.add_middleware(
 async def log_http_errors(request: Request, call_next):
     response = await call_next(request)
     if response.status_code >= 400:
-        # Не логируем OPTIONS preflight и health-check
-        if request.method != "OPTIONS" and request.url.path != "/api/v1/health":
-            await notify(fmt_http_error(response.status_code, request.method, request.url.path))
+        path = request.url.path
+        # Не логируем OPTIONS preflight, health-check и сканеры ботов (404 вне /api/)
+        if (
+            request.method != "OPTIONS"
+            and path != "/api/v1/health"
+            and not (response.status_code == 404 and not path.startswith("/api/"))
+        ):
+            await notify(fmt_http_error(response.status_code, request.method, path))
     return response
 
 
