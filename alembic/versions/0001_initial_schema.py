@@ -134,21 +134,21 @@ def upgrade() -> None:
     op.create_index("ix_categories_user_id", "categories", ["user_id"])
     op.execute("""
         INSERT INTO categories (id, user_id, name, icon, color, type, sort_order) VALUES
-        (gen_random_uuid(), NULL, 'Food & Drinks',  '🍔', '#F59E0B', 'expense', 1),
-        (gen_random_uuid(), NULL, 'Transport',      '🚗', '#3B82F6', 'expense', 2),
-        (gen_random_uuid(), NULL, 'Shopping',       '🛍️', '#EC4899', 'expense', 3),
-        (gen_random_uuid(), NULL, 'Housing',        '🏠', '#8B5CF6', 'expense', 4),
-        (gen_random_uuid(), NULL, 'Health',         '💊', '#EF4444', 'expense', 5),
-        (gen_random_uuid(), NULL, 'Entertainment',  '🎮', '#F97316', 'expense', 6),
-        (gen_random_uuid(), NULL, 'Education',      '📚', '#06B6D4', 'expense', 7),
-        (gen_random_uuid(), NULL, 'Travel',         '✈️', '#10B981', 'expense', 8),
-        (gen_random_uuid(), NULL, 'Subscriptions',  '📱', '#6366F1', 'expense', 9),
-        (gen_random_uuid(), NULL, 'Other',          '📦', '#6B7280', 'expense', 10),
-        (gen_random_uuid(), NULL, 'Salary',         '💼', '#22C55E', 'income',  1),
-        (gen_random_uuid(), NULL, 'Freelance',      '💻', '#84CC16', 'income',  2),
-        (gen_random_uuid(), NULL, 'Investments',    '📈', '#14B8A6', 'income',  3),
-        (gen_random_uuid(), NULL, 'Gift',           '🎁', '#F472B6', 'income',  4),
-        (gen_random_uuid(), NULL, 'Other Income',   '💰', '#A3E635', 'income',  5)
+        (gen_random_uuid(), NULL, 'Зарплата',       '💵', '#22C55E', 'income',  1),
+        (gen_random_uuid(), NULL, 'Подарок',        '✨', '#F472B6', 'income',  2),
+        (gen_random_uuid(), NULL, 'Инвестиции',     '🏦', '#14B8A6', 'income',  3),
+        (gen_random_uuid(), NULL, 'Другие доходы',  '💰', '#A3E635', 'income',  4),
+        (gen_random_uuid(), NULL, 'Продукты',       '🥑', '#F59E0B', 'expense', 1),
+        (gen_random_uuid(), NULL, 'Еда вне дома',   '🥡', '#F97316', 'expense', 2),
+        (gen_random_uuid(), NULL, 'Транспорт',      '🛞', '#3B82F6', 'expense', 3),
+        (gen_random_uuid(), NULL, 'Услуги',         '💧', '#06B6D4', 'expense', 4),
+        (gen_random_uuid(), NULL, 'Подписки',       '🏷', '#6366F1', 'expense', 5),
+        (gen_random_uuid(), NULL, 'Церковь',        '🕊', '#8B5CF6', 'expense', 6),
+        (gen_random_uuid(), NULL, 'Одежда',         '🪡', '#EC4899', 'expense', 7),
+        (gen_random_uuid(), NULL, 'Для дома',       '🧺', '#10B981', 'expense', 8),
+        (gen_random_uuid(), NULL, 'Уход',           '🧴', '#84CC16', 'expense', 9),
+        (gen_random_uuid(), NULL, 'Цветы',          '🪷', '#F43F5E', 'expense', 10),
+        (gen_random_uuid(), NULL, 'Другие расходы', '💸', '#6B7280', 'expense', 11)
     """)
 
     # ── Транзакции ────────────────────────────────────────────────────────────
