@@ -51,27 +51,13 @@ async def update_category(category_id: uuid.UUID, data: CategoryUpdate, user: Us
     result = await db.execute(
         select(Category).where(
             Category.id == category_id,
-            or_(Category.user_id == user.id, Category.user_id.is_(None)),
+            Category.user_id == user.id,
             Category.is_active == True,
         )
     )
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-
-    # Системную категорию нельзя менять напрямую — создаём пользовательскую копию
-    if category.user_id is None:
-        copy = Category(
-            user_id=user.id,
-            name=data.name if data.name else category.name,
-            icon=data.icon if data.icon else category.icon,
-            color=data.color if data.color else category.color,
-            type=category.type,
-            sort_order=category.sort_order,
-        )
-        db.add(copy)
-        await db.flush()
-        return CategoryResponse.model_validate(copy)
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(category, field, value)
