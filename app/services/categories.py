@@ -11,6 +11,7 @@ from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdat
 
 
 async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]:
+    # Получаем все пользовательские + системные категории
     result = await db.execute(
         select(Category)
         .where(
@@ -19,8 +20,14 @@ async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]
         )
         .order_by(Category.user_id.is_(None).desc(), Category.sort_order)
     )
-    categories = result.scalars().all()
-    return [CategoryResponse.model_validate(c) for c in categories]
+    all_cats = result.scalars().all()
+
+    # Если у пользователя есть копия системной (parent_id != None),
+    # скрываем оригинал
+    overridden_ids = {c.parent_id for c in all_cats if c.parent_id is not None}
+    filtered = [c for c in all_cats if c.id not in overridden_ids]
+
+    return [CategoryResponse.model_validate(c) for c in filtered]
 
 
 async def create_category(data: CategoryCreate, user: User, db: AsyncSession) -> CategoryResponse:
@@ -51,7 +58,7 @@ async def update_category(category_id: uuid.UUID, data: CategoryUpdate, user: Us
     result = await db.execute(
         select(Category).where(
             Category.id == category_id,
-            Category.user_id == user.id,
+            or_(Category.user_id == user.id, Category.user_id.is_(None)),
             Category.is_active == True,
         )
     )
@@ -59,6 +66,40 @@ async def update_category(category_id: uuid.UUID, data: CategoryUpdate, user: Us
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
+    # Системная категория — copy-on-write
+    if category.user_id is None:
+        # Проверяем нет ли уже копии
+        existing = await db.execute(
+            select(Category).where(
+                Category.parent_id == category.id,
+                Category.user_id == user.id,
+            )
+        )
+        copy = existing.scalar_one_or_none()
+        if copy:
+            # Обновляем существующую копию
+            for field, value in data.model_dump(exclude_unset=True).items():
+                setattr(copy, field, value)
+            copy.is_active = True
+            await db.flush()
+            return CategoryResponse.model_validate(copy)
+
+        # Создаём новую копию
+        update_data = data.model_dump(exclude_unset=True)
+        copy = Category(
+            user_id=user.id,
+            parent_id=category.id,
+            name=update_data.get("name", category.name),
+            icon=update_data.get("icon", category.icon),
+            color=update_data.get("color", category.color),
+            type=update_data.get("type", category.type),
+            sort_order=category.sort_order,
+        )
+        db.add(copy)
+        await db.flush()
+        return CategoryResponse.model_validate(copy)
+
+    # Пользовательская категория — обновляем напрямую
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(category, field, value)
 
@@ -86,11 +127,37 @@ async def delete_category(category_id: uuid.UUID, user: User, db: AsyncSession) 
     result = await db.execute(
         select(Category).where(
             Category.id == category_id,
-            Category.user_id == user.id,  # системные категории нельзя удалять
+            or_(Category.user_id == user.id, Category.user_id.is_(None)),
+            Category.is_active == True,
         )
     )
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    # Системная — создаём скрытую копию для пользователя
+    if category.user_id is None:
+        existing = await db.execute(
+            select(Category).where(
+                Category.parent_id == category.id,
+                Category.user_id == user.id,
+            )
+        )
+        copy = existing.scalar_one_or_none()
+        if copy:
+            copy.is_active = False
+        else:
+            copy = Category(
+                user_id=user.id,
+                parent_id=category.id,
+                name=category.name,
+                icon=category.icon,
+                color=category.color,
+                type=category.type,
+                sort_order=category.sort_order,
+                is_active=False,
+            )
+            db.add(copy)
+        return
 
     category.is_active = False
