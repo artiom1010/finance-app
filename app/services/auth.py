@@ -154,7 +154,8 @@ async def google_auth(data: GoogleAuthRequest, db: AsyncSession) -> AuthResponse
 
     google_data = resp.json()
 
-    if google_data.get("aud") != settings.google_client_id:
+    allowed_auds = {settings.google_client_id, settings.google_ios_client_id}
+    if google_data.get("aud") not in allowed_auds:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token audience mismatch")
 
     if not google_data.get("email_verified"):

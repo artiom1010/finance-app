@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     jwt_refresh_token_expire_days: int = 30
 
     # Google OAuth
-    google_client_id: str = ""
+    google_client_id: str = ""  # Web Client ID
+    google_ios_client_id: str = ""  # iOS Client ID
 
     # Apple Sign In
     apple_bundle_id: str = ""   # com.yourcompany.yourapp
