@@ -115,7 +115,13 @@ async def get_subscription(user: User, db: AsyncSession) -> SubscriptionResponse
     )
     sub = result.scalar_one_or_none()
     if not sub:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
+        # Default free subscription for users who never purchased anything.
+        # Creating the row lets the RevenueCat webhook upgrade it in place
+        # later without needing separate insert/update branches.
+        sub = Subscription(user_id=user.id, tier="free", status="active")
+        db.add(sub)
+        await db.flush()
+        await db.refresh(sub)
     return SubscriptionResponse.model_validate(sub)
 
 

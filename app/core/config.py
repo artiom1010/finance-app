@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # RevenueCat (server-to-server webhook authentication)
+    revenuecat_webhook_secret: str = ""
+
+    # AI safety: soft daily cap in USD across all users. When exceeded,
+    # `/ai/command` returns 503 and fires a Telegram alert.
+    ai_daily_budget_usd: float = 5.0
+
     @property
     def database_url(self) -> str:
         return (

@@ -1,59 +1,49 @@
-import uuid
-
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
-from app.schemas.ai import AiAskRequest, AiChatResponse, AiMessageResponse, AiPromptTemplateResponse
+from app.schemas.ai import (
+    AiCommandRequest,
+    AiCommandResponse,
+    AiTemplateDescriptor,
+    AiUsageResponse,
+)
 from app.services import ai as ai_service
 
 router = APIRouter(prefix="/ai")
+limiter = Limiter(key_func=get_remote_address)
 
 
-@router.get("/templates", response_model=list[AiPromptTemplateResponse])
-async def get_templates(
+@router.get("/templates", response_model=list[AiTemplateDescriptor])
+async def get_templates(user: User = Depends(get_current_user)):
+    """Static list of the three available AI commands for the client UI."""
+    return ai_service.list_templates()
+
+
+@router.get("/usage", response_model=AiUsageResponse)
+async def get_usage(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Кнопки-шаблоны вопросов (preset buttons в интерфейсе)."""
-    return await ai_service.get_templates(db)
+    """Badge data for the AI screen: used/limit and per-command cache freshness."""
+    return await ai_service.get_usage(user, db)
 
 
-@router.get("/chat", response_model=AiChatResponse)
-async def get_chat(
+@router.post("/command", response_model=AiCommandResponse)
+@limiter.limit("10/minute")
+async def run_command(
+    request: Request,
+    data: AiCommandRequest,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """История чата + счётчик запросов сегодня."""
-    return await ai_service.get_chat(user, db)
+    """Execute one of the three fixed AI commands.
 
-
-@router.post("/ask", response_model=AiMessageResponse)
-async def ask(
-    data: AiAskRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Отправить сообщение AI советнику."""
-    return await ai_service.ask(data, user, db)
-
-
-@router.delete("/messages/{message_id}", status_code=204)
-async def delete_message(
-    message_id: uuid.UUID,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Удалить отдельное сообщение из чата (soft delete)."""
-    await ai_service.delete_message(message_id, user, db)
-
-
-@router.delete("/chat", status_code=204)
-async def clear_chat(
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Очистить историю чата (soft clear — данные не удаляются)."""
-    await ai_service.clear_chat(user, db)
+    Rate-limited at the HTTP edge (slowapi) to defend against single-IP DoS.
+    Business-level daily quotas (Free=1, Pro=3) live in the service layer.
+    """
+    return await ai_service.run_command(data.command, user, db)
