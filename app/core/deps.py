@@ -16,7 +16,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.security import TokenExpiredError, decode_token
-from app.models.user import Subscription, User
+from app.models.user import User
+from app.services.subscriptions import is_effective_pro
 
 bearer_scheme = HTTPBearer()
 
@@ -62,8 +63,7 @@ async def get_current_user(
 
 async def get_current_pro_user(user: User = Depends(get_current_user)) -> User:
     """Проверяет что у пользователя активная Pro подписка."""
-    sub: Subscription | None = user.subscription
-    if not sub or sub.tier != "pro" or sub.status not in ("active", "trialing"):
+    if not is_effective_pro(user.subscription):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Pro subscription required",

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
 
     # RevenueCat (server-to-server webhook authentication)
     revenuecat_webhook_secret: str = ""
+    # RevenueCat REST API v1 secret key (starts with "sk_") — used by
+    # POST /subscriptions/sync to pull authoritative subscription state.
+    # Never exposed to clients.
+    revenuecat_rest_api_key: str = ""
 
     # AI safety: soft daily cap in USD across all users. When exceeded,
     # `/ai/command` returns 503 and fires a Telegram alert.

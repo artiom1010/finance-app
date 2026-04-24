@@ -1,15 +1,15 @@
 import uuid
-from datetime import date as Date
+from datetime import UTC, date as Date, datetime
 from decimal import Decimal
 
 import io
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_pro_user, get_current_user
 from app.models.user import User
 from app.schemas.transaction import (
     TransactionCreate,
@@ -19,6 +19,11 @@ from app.schemas.transaction import (
     TransactionUpdate,
 )
 from app.services import transactions as tx_service
+from app.services.subscriptions import is_effective_pro
+
+# Free users see only the current month and the 5 largest categories —
+# deeper history and the full breakdown are Pro perks.
+FREE_STATS_TOP_CATEGORIES = 5
 
 router = APIRouter(prefix="/transactions")
 
@@ -39,8 +44,32 @@ async def get_stats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Статистика: суммы доходов/расходов, баланс, разбивка по категориям."""
-    return await tx_service.get_stats(user, db, date_from=date_from, date_to=date_to)
+    """Статистика: суммы доходов/расходов, баланс, разбивка по категориям.
+
+    Free users are restricted to the current calendar month and see only
+    the top-5 categories. Requests for older data return 403.
+    """
+    if not is_effective_pro(user.subscription):
+        month_start = datetime.now(UTC).date().replace(day=1)
+        if date_from is None:
+            # Default Free to current month so UI that doesn't pass dates
+            # still gets a useful response.
+            date_from = month_start
+        elif date_from < month_start:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Сравнение по месяцам доступно в Pro",
+            )
+
+    stats = await tx_service.get_stats(
+        user, db, date_from=date_from, date_to=date_to,
+    )
+
+    if not is_effective_pro(user.subscription):
+        stats.income_by_category = stats.income_by_category[:FREE_STATS_TOP_CATEGORIES]
+        stats.expense_by_category = stats.expense_by_category[:FREE_STATS_TOP_CATEGORIES]
+
+    return stats
 
 
 @router.get("", response_model=TransactionListResponse)
@@ -113,10 +142,10 @@ async def delete_transaction(
 async def export_transactions(
     date_from: Date | None = Query(None),
     date_to: Date | None = Query(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_pro_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Экспорт транзакций в CSV."""
+    """Экспорт транзакций в CSV (Pro-only)."""
     csv_content = await tx_service.export_csv(user, db, date_from=date_from, date_to=date_to)
     filename = f"transactions_{user.id}.csv"
     return StreamingResponse(

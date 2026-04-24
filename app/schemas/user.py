@@ -65,6 +65,7 @@ class SubscriptionResponse(BaseModel):
     status: str
     store: str | None
     revenuecat_customer_id: str | None
+    expires_at: datetime | None
     updated_at: datetime
 
     model_config = {"from_attributes": True}

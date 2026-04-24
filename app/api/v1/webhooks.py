@@ -5,6 +5,7 @@ but protected by a shared secret sent as an `Authorization: Bearer <secret>`
 header configured in the RevenueCat dashboard.
 """
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -13,7 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.models.user import Subscription, User
+from app.models.user import User
+from app.services.subscriptions import (
+    SubscriptionUpdate,
+    apply_subscription_update,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,14 +28,17 @@ router = APIRouter(prefix="/webhooks")
 # ── Event → (tier, status) mapping ────────────────────────────────────
 # Reference: https://www.revenuecat.com/docs/webhooks#event-types
 _TIER_FROM_EVENT: dict[str, tuple[str, str]] = {
-    "INITIAL_PURCHASE":  ("pro",  "active"),
-    "RENEWAL":           ("pro",  "active"),
-    "PRODUCT_CHANGE":    ("pro",  "active"),
-    "UNCANCELLATION":    ("pro",  "active"),
-    "CANCELLATION":      ("pro",  "cancelled"),   # still Pro until expiration
-    "EXPIRATION":        ("free", "expired"),
-    "BILLING_ISSUE":     ("pro",  "grace_period"),
+    "INITIAL_PURCHASE":    ("pro",  "active"),
+    "RENEWAL":             ("pro",  "active"),
+    "PRODUCT_CHANGE":      ("pro",  "active"),
+    "UNCANCELLATION":      ("pro",  "active"),
+    "CANCELLATION":        ("pro",  "cancelled"),   # still Pro until expiration
+    "EXPIRATION":          ("free", "expired"),
+    "BILLING_ISSUE":       ("pro",  "grace_period"),
     "SUBSCRIPTION_PAUSED": ("free", "paused"),
+    # Refund reverses the sale — revoke access immediately, don't wait for
+    # EXPIRATION. RevenueCat emits this separately from CANCELLATION.
+    "REFUND":              ("free", "cancelled"),
 }
 
 _STORE_FROM_EVENT: dict[str, str] = {
@@ -81,6 +89,16 @@ async def _resolve_user(
     return result.scalar_one_or_none()
 
 
+def _expires_at_from_event(event: dict[str, Any]) -> datetime | None:
+    ms = event.get("expiration_at_ms")
+    if ms is None:
+        return None
+    try:
+        return datetime.fromtimestamp(int(ms) / 1000, tz=UTC)
+    except (TypeError, ValueError):
+        return None
+
+
 @router.post("/revenuecat", status_code=status.HTTP_204_NO_CONTENT)
 async def revenuecat_webhook(
     request: Request,
@@ -118,34 +136,28 @@ async def revenuecat_webhook(
         return
     tier, sub_status = mapping
 
-    # Upsert subscription row
-    result = await db.execute(
-        select(Subscription).where(Subscription.user_id == user.id)
-    )
-    sub = result.scalar_one_or_none()
-    if sub is None:
-        sub = Subscription(user_id=user.id)
-        db.add(sub)
-
-    sub.tier = tier
-    sub.status = sub_status
-
     store_code = event.get("store")
-    if store_code and store_code in _STORE_FROM_EVENT:
-        sub.store = _STORE_FROM_EVENT[store_code]
-
+    store = _STORE_FROM_EVENT.get(store_code) if store_code else None
     # RevenueCat identifies the subscriber by `app_user_id` we sent at login
     # time, and additionally assigns a stable `original_app_user_id`. We
     # persist the latter when available for future reconciliation.
-    rc_customer_id = (
-        event.get("original_app_user_id")
-        or event.get("app_user_id")
-    )
-    if rc_customer_id:
-        sub.revenuecat_customer_id = str(rc_customer_id)
+    rc_customer_id = event.get("original_app_user_id") or event.get("app_user_id")
 
-    await db.commit()
-    logger.info(
-        "revenuecat %s: user=%s tier=%s status=%s store=%s",
-        event_type, user.id, tier, sub_status, sub.store,
+    # EXPIRATION/REFUND clear expires_at — a fresh grant (INITIAL_PURCHASE,
+    # RENEWAL, PRODUCT_CHANGE) always carries the next billing deadline.
+    expires_at = _expires_at_from_event(event)
+    if event_type in ("EXPIRATION", "REFUND"):
+        expires_at = None
+
+    await apply_subscription_update(
+        user,
+        SubscriptionUpdate(
+            tier=tier,
+            status=sub_status,
+            expires_at=expires_at,
+            store=store,
+            revenuecat_customer_id=str(rc_customer_id) if rc_customer_id else None,
+        ),
+        db,
+        reason=f"webhook:{event_type}",
     )

@@ -91,6 +91,7 @@ class Subscription(Base):
     status: Mapped[str] = mapped_column(String, default="active")
     store: Mapped[str | None] = mapped_column(String, nullable=True)
     revenuecat_customer_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

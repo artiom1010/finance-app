@@ -1,18 +1,49 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from app.api.v1 import ai, auth, categories, health, limits, recurring, transactions, users, webhooks
+from app.api.v1 import (
+    ai,
+    auth,
+    categories,
+    health,
+    limits,
+    recurring,
+    subscriptions,
+    transactions,
+    users,
+    webhooks,
+)
 from app.core.config import settings
 from app.core.telegram import fmt_http_error, notify
+from app.services.subscription_expiry import run_forever as run_subscription_sweep
 
 limiter = Limiter(key_func=get_remote_address)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Subscription expiry sweep — hourly backstop for missed EXPIRATION webhooks.
+    sweep_task = asyncio.create_task(run_subscription_sweep())
+    try:
+        yield
+    finally:
+        sweep_task.cancel()
+        try:
+            await sweep_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="FinanceAI API",
     version=settings.app_version,
+    lifespan=lifespan,
     # Swagger UI только в dev режиме
     docs_url="/docs" if not settings.is_production else None,
     redoc_url="/redoc" if not settings.is_production else None,
@@ -56,4 +87,5 @@ app.include_router(categories.router, prefix="/api/v1", tags=["categories"])
 app.include_router(limits.router, prefix="/api/v1", tags=["limits"])
 app.include_router(recurring.router, prefix="/api/v1", tags=["recurring"])
 app.include_router(ai.router, prefix="/api/v1", tags=["ai"])
+app.include_router(subscriptions.router, prefix="/api/v1", tags=["subscriptions"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["webhooks"])

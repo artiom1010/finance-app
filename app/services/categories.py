@@ -8,6 +8,11 @@ from app.core.telegram import fmt_first_category, notify
 from app.models.transaction import Category
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from app.services.subscriptions import is_effective_pro
+
+# Free users can create at most this many brand-new user categories
+# (copies/overrides of system categories do not count).
+FREE_USER_CATEGORY_LIMIT = 5
 
 
 async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]:
@@ -31,12 +36,26 @@ async def get_categories(user: User, db: AsyncSession) -> list[CategoryResponse]
 
 
 async def create_category(data: CategoryCreate, user: User, db: AsyncSession) -> CategoryResponse:
+    # Count only brand-new user categories (parent_id is NULL). Overrides of
+    # system categories are tracked separately and don't count toward the
+    # Free-plan limit.
     count_result = await db.execute(
         select(func.count()).select_from(Category).where(
-            Category.user_id == user.id, Category.is_active == True
+            Category.user_id == user.id,
+            Category.parent_id.is_(None),
+            Category.is_active == True,
         )
     )
-    is_first = count_result.scalar() == 0
+    existing_count = count_result.scalar() or 0
+    if existing_count >= FREE_USER_CATEGORY_LIMIT and not is_effective_pro(user.subscription):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"Free-план: максимум {FREE_USER_CATEGORY_LIMIT} "
+                "пользовательских категорий. Оформите Pro для безлимита."
+            ),
+        )
+    is_first = existing_count == 0
 
     category = Category(
         user_id=user.id,
