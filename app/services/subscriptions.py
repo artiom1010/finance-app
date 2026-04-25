@@ -111,7 +111,10 @@ def is_effective_pro(sub: Subscription | None) -> bool:
 # returns the authoritative entitlements snapshot.
 
 _RC_API_BASE = "https://api.revenuecat.com/v1"
-_RC_PRO_ENTITLEMENT = "pro"
+# Must match the entitlement identifier in RevenueCat dashboard. The
+# auto-created test entitlement was named "FinApp Pro" (with a space) —
+# keep these aligned with mobile/lib/core/revenuecat_config.dart.
+_RC_PRO_ENTITLEMENT = "FinApp Pro"
 
 
 async def fetch_revenuecat_snapshot(app_user_id: str) -> dict[str, Any]:
