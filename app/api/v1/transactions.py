@@ -100,6 +100,27 @@ async def list_transactions(
     )
 
 
+@router.get("/export")
+async def export_transactions(
+    date_from: Date | None = Query(None),
+    date_to: Date | None = Query(None),
+    user: User = Depends(get_current_pro_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Экспорт транзакций в CSV (Pro-only).
+
+    Must stay above `/{tx_id}` — otherwise FastAPI matches `export` as a UUID
+    path param and returns 422 instead of hitting this handler.
+    """
+    csv_content = await tx_service.export_csv(user, db, date_from=date_from, date_to=date_to)
+    filename = f"transactions_{user.id}.csv"
+    return StreamingResponse(
+        io.StringIO(csv_content),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.get("/{tx_id}", response_model=TransactionResponse)
 async def get_transaction(
     tx_id: uuid.UUID,
@@ -136,20 +157,3 @@ async def delete_transaction(
     db: AsyncSession = Depends(get_db),
 ):
     await tx_service.delete_transaction(tx_id, user, db)
-
-
-@router.get("/export")
-async def export_transactions(
-    date_from: Date | None = Query(None),
-    date_to: Date | None = Query(None),
-    user: User = Depends(get_current_pro_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """Экспорт транзакций в CSV (Pro-only)."""
-    csv_content = await tx_service.export_csv(user, db, date_from=date_from, date_to=date_to)
-    filename = f"transactions_{user.id}.csv"
-    return StreamingResponse(
-        io.StringIO(csv_content),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
