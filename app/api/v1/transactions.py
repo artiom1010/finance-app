@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import get_current_pro_user, get_current_user
+from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.transaction import (
     TransactionCreate,
@@ -104,14 +104,27 @@ async def list_transactions(
 async def export_transactions(
     date_from: Date | None = Query(None),
     date_to: Date | None = Query(None),
-    user: User = Depends(get_current_pro_user),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Экспорт транзакций в CSV (Pro-only).
+    """Экспорт транзакций в CSV.
+
+    Free: текущий месяц (если `date_from` не передан — авто-подстановка;
+    более ранняя дата → 403 «Plus»). Plus: любой период.
 
     Must stay above `/{tx_id}` — otherwise FastAPI matches `export` as a UUID
     path param and returns 422 instead of hitting this handler.
     """
+    if not is_effective_pro(user.subscription):
+        month_start = datetime.now(UTC).date().replace(day=1)
+        if date_from is None:
+            date_from = month_start
+        elif date_from < month_start:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Экспорт за прошлые периоды доступен в Plus",
+            )
+
     csv_content = await tx_service.export_csv(user, db, date_from=date_from, date_to=date_to)
     filename = f"transactions_{user.id}.csv"
     return StreamingResponse(
