@@ -4,7 +4,9 @@ Design decisions (see `/Users/artemsary/.claude/plans/linear-wishing-bengio.md`)
 - No free-form chat. Only three commands: headline / overshoot / cuts.
 - Each command: max_tokens=400, no history, compact transaction summary.
 - 24h cache per (user, command) keyed by a hash of the input data.
-- Daily limits: Free = 1 command, Pro = 3 commands. Counts only cache misses.
+- Quotas: Free = 1 command per week, Pro = 3 commands per day. Every
+  invocation consumes a credit — including cache hits. The cache only
+  saves Anthropic tokens, it does not let users bypass their quota.
 - Global daily USD budget guard with Telegram alert.
 """
 import hashlib
@@ -32,8 +34,9 @@ from app.schemas.ai import (
 logger = logging.getLogger(__name__)
 
 # ── Limits ───────────────────────────────────────────────────────────
-FREE_COMMAND_LIMIT = 1
-PRO_COMMAND_LIMIT = 3
+FREE_COMMAND_LIMIT = 1   # per week
+PRO_COMMAND_LIMIT = 3    # per day
+FREE_PERIOD_DAYS = 7
 CACHE_TTL = timedelta(hours=24)
 REQUEST_TIMEOUT_SECONDS = 15.0
 MAX_OUTPUT_TOKENS = 400
@@ -96,38 +99,43 @@ def list_templates() -> list[AiTemplateDescriptor]:
 # ── Main entry point ─────────────────────────────────────────────────
 async def run_command(command: AiCommand, user: User, db: AsyncSession) -> AiCommandResponse:
     tier = user.subscription.tier if user.subscription else "free"
-    daily_limit = PRO_COMMAND_LIMIT if tier == "pro" else FREE_COMMAND_LIMIT
+    limit, period = _quota_for_tier(tier)
 
-    # 1. Compute input hash from this month's transactions
+    # 1. Quota check (cache hits also consume a credit — the cache only
+    #    saves Anthropic tokens, it does not let users bypass the quota).
+    used = await _used_in_period(user, tier, db, lock=True)
+    if used >= limit:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Недельный лимит AI-команд исчерпан. "
+                "Оформите FinanceAI Plus для трёх инсайтов в день."
+                if tier != "pro"
+                else "Вы уже использовали все три команды на сегодня."
+            ),
+        )
+
+    # 2. Build input hash from this month's transactions
     month_start = Date.today().replace(day=1)
     month_facts = await _collect_month_facts(user, month_start, db)
     prev_facts = await _collect_month_facts(user, _prev_month_first_day(month_start), db)
     data_hash = _hash_facts(command, month_facts, prev_facts)
 
-    # 2. Cache hit → return immediately, no quota consumed
+    # 3. Cache lookup — saves Anthropic tokens but still consumes the user's
+    #    credit (already verified above).
     cache_row = await _find_cache(user.id, command, data_hash, db)
     if cache_row is not None:
+        await _increment_usage(user, db)
+        await db.flush()
         return AiCommandResponse(
             command=command,
             text=cache_row.response,
             cached=True,
             tokens_used=0,
-            used_today=await _used_today(user, db),
-            daily_limit=daily_limit,
+            used=used + 1,
+            limit=limit,
+            period=period,
             generated_at=cache_row.created_at,
-        )
-
-    # 3. Cache miss → enforce per-user daily limit
-    used_today = await _used_today(user, db, lock=True)
-    if used_today >= daily_limit:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Дневной лимит AI-команд исчерпан. "
-                "Оформите FinanceAI Plus для трёх инсайтов в день."
-                if tier != "pro"
-                else "Вы уже использовали все три команды на сегодня."
-            ),
         )
 
     # 4. Soft global budget guard
@@ -167,8 +175,9 @@ async def run_command(command: AiCommand, user: User, db: AsyncSession) -> AiCom
         text=text,
         cached=False,
         tokens_used=tokens,
-        used_today=used_today + 1,
-        daily_limit=daily_limit,
+        used=used + 1,
+        limit=limit,
+        period=period,
         generated_at=now,
     )
 
@@ -176,7 +185,7 @@ async def run_command(command: AiCommand, user: User, db: AsyncSession) -> AiCom
 async def get_usage(user: User, db: AsyncSession) -> AiUsageResponse:
     """Light-weight summary for the AI screen header badge."""
     tier = user.subscription.tier if user.subscription else "free"
-    daily_limit = PRO_COMMAND_LIMIT if tier == "pro" else FREE_COMMAND_LIMIT
+    limit, period = _quota_for_tier(tier)
 
     result = await db.execute(
         select(AiCommandCache).where(AiCommandCache.user_id == user.id)
@@ -187,10 +196,17 @@ async def get_usage(user: User, db: AsyncSession) -> AiUsageResponse:
             by_cmd[row.command] = row.created_at
 
     return AiUsageResponse(
-        used_today=await _used_today(user, db),
-        daily_limit=daily_limit,
+        used=await _used_in_period(user, tier, db),
+        limit=limit,
+        period=period,
         cached=by_cmd,
     )
+
+
+def _quota_for_tier(tier: str) -> tuple[int, str]:
+    if tier == "pro":
+        return PRO_COMMAND_LIMIT, "day"
+    return FREE_COMMAND_LIMIT, "week"
 
 
 # ── Cache helpers ────────────────────────────────────────────────────
@@ -246,14 +262,43 @@ async def _upsert_cache(
 
 
 # ── Quota helpers ────────────────────────────────────────────────────
-async def _used_today(user: User, db: AsyncSession, lock: bool = False) -> int:
+async def _used_in_period(
+    user: User, tier: str, db: AsyncSession, lock: bool = False
+) -> int:
+    """Count commands used in the user's quota window.
+
+    Pro counts today's row; Free sums the past `FREE_PERIOD_DAYS` days
+    (inclusive of today). The row-lock is best-effort — held only on
+    today's row to serialise concurrent inserts on the same day.
+    """
     today = Date.today()
-    stmt = select(AiUsage).where(AiUsage.user_id == user.id, AiUsage.date == today)
+    if tier == "pro":
+        stmt = select(AiUsage).where(
+            AiUsage.user_id == user.id, AiUsage.date == today
+        )
+        if lock:
+            stmt = stmt.with_for_update()
+        result = await db.execute(stmt)
+        row = result.scalar_one_or_none()
+        return row.request_count if row else 0
+
+    # Free → past 7 days
     if lock:
-        stmt = stmt.with_for_update()
-    result = await db.execute(stmt)
-    row = result.scalar_one_or_none()
-    return row.request_count if row else 0
+        # Lock today's row (if any) so two concurrent free-tier requests
+        # serialise on it; the second one will re-read the updated count.
+        await db.execute(
+            select(AiUsage)
+            .where(AiUsage.user_id == user.id, AiUsage.date == today)
+            .with_for_update()
+        )
+    week_start = today - timedelta(days=FREE_PERIOD_DAYS - 1)
+    result = await db.execute(
+        select(func.coalesce(func.sum(AiUsage.request_count), 0)).where(
+            AiUsage.user_id == user.id,
+            AiUsage.date >= week_start,
+        )
+    )
+    return int(result.scalar() or 0)
 
 
 async def _increment_usage(user: User, db: AsyncSession) -> None:

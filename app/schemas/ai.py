@@ -12,19 +12,24 @@ class AiCommandRequest(BaseModel):
     command: AiCommand
 
 
+QuotaPeriod = Literal["day", "week"]
+
+
 class AiCommandResponse(BaseModel):
     command: AiCommand
     text: str
     cached: bool
     tokens_used: int
-    used_today: int
-    daily_limit: int       # 1 for free, 3 for pro
+    used: int            # commands consumed in the current quota window
+    limit: int           # 1 for free, 3 for pro
+    period: QuotaPeriod  # "week" for free, "day" for pro
     generated_at: datetime
 
 
 class AiUsageResponse(BaseModel):
-    used_today: int
-    daily_limit: int
+    used: int
+    limit: int
+    period: QuotaPeriod
     cached: dict[str, datetime | None]  # {command: last_generated_at}
 
 
