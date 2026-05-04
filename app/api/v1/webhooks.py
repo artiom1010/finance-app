@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.telegram import fmt_subscription_event, notify
 from app.models.user import User
 from app.services.subscriptions import (
     SubscriptionUpdate,
@@ -121,23 +122,35 @@ async def revenuecat_webhook(
         raise HTTPException(status_code=400, detail="Missing event.type")
 
     user = await _resolve_user(event, db)
+    mapping = _TIER_FROM_EVENT.get(event_type)
+
+    store_code = event.get("store")
+    store = _STORE_FROM_EVENT.get(store_code) if store_code else None
+
     if user is None:
         # Non-existent user can happen during testing or if a purchase runs
         # under an anonymous id that never logged in. 204 still — we don't
         # want RevenueCat to keep retrying a missing user.
         logger.info("revenuecat event %s for unknown user_id=%s",
                     event_type, event.get("app_user_id"))
+        if mapping is not None:
+            await notify(fmt_subscription_event(
+                event_type,
+                email=None,
+                product_id=event.get("product_id"),
+                store=store,
+                environment=event.get("environment"),
+                price=event.get("price"),
+                currency=event.get("currency"),
+            ))
         return
 
-    mapping = _TIER_FROM_EVENT.get(event_type)
     if mapping is None:
         # Unknown / uninteresting event — log and ack.
         logger.info("revenuecat event ignored: %s", event_type)
         return
     tier, sub_status = mapping
 
-    store_code = event.get("store")
-    store = _STORE_FROM_EVENT.get(store_code) if store_code else None
     # RevenueCat identifies the subscriber by `app_user_id` we sent at login
     # time, and additionally assigns a stable `original_app_user_id`. We
     # persist the latter when available for future reconciliation.
@@ -161,3 +174,13 @@ async def revenuecat_webhook(
         db,
         reason=f"webhook:{event_type}",
     )
+
+    await notify(fmt_subscription_event(
+        event_type,
+        email=user.email,
+        product_id=event.get("product_id"),
+        store=store,
+        environment=event.get("environment"),
+        price=event.get("price"),
+        currency=event.get("currency"),
+    ))

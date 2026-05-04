@@ -67,3 +67,42 @@ def fmt_http_error(status_code: int, method: str, path: str) -> str:
     if status_code >= 500:
         return f"🔴 <b>Ошибка {status_code}</b>\n🛣 {method} {path}"
     return f"⚠️ <b>{status_code}</b> {method} {path}"
+
+
+# Headline + emoji per RevenueCat event type.
+_SUB_EVENT_LABEL: dict[str, tuple[str, str]] = {
+    "INITIAL_PURCHASE":    ("✅", "Покупка подписки"),
+    "RENEWAL":             ("🔁", "Продление подписки"),
+    "PRODUCT_CHANGE":      ("🔀", "Смена тарифа"),
+    "UNCANCELLATION":      ("↩️", "Подписка возобновлена"),
+    "CANCELLATION":        ("🟡", "Отмена подписки (до конца периода активна)"),
+    "EXPIRATION":          ("⌛", "Подписка истекла"),
+    "BILLING_ISSUE":       ("❗", "Сбой платежа (grace period)"),
+    "SUBSCRIPTION_PAUSED": ("⏸", "Подписка на паузе"),
+    "REFUND":              ("💸", "Возврат платежа"),
+}
+
+
+def fmt_subscription_event(
+    event_type: str,
+    *,
+    email: str | None,
+    product_id: str | None,
+    store: str | None,
+    environment: str | None,
+    price: float | None,
+    currency: str | None,
+) -> str:
+    emoji, title = _SUB_EVENT_LABEL.get(event_type, ("📩", event_type))
+    lines = [f"{emoji} <b>{title}</b>"]
+    if email:
+        lines.append(f"📧 {email}")
+    if product_id:
+        lines.append(f"📦 {product_id}")
+    if price is not None and currency:
+        lines.append(f"💰 {price} {currency}")
+    if store:
+        lines.append(f"🛒 {store}")
+    if environment and environment.upper() != "PRODUCTION":
+        lines.append(f"🧪 {environment}")
+    return "\n".join(lines)

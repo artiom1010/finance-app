@@ -6,13 +6,15 @@ fresh state from RevenueCat. This closes the race between a successful
 purchase on-device and the webhook arriving: instead of waiting, the client
 triggers an immediate server-side reconciliation.
 """
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, status
+from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
+from app.core.telegram import notify
 from app.models.user import User
 from app.schemas.user import SubscriptionResponse
 from app.services import users as user_service
@@ -53,3 +55,41 @@ async def sync_subscription(
     update = parse_revenuecat_snapshot(snapshot)
     await apply_subscription_update(user, update, db, reason="client:sync")
     return await user_service.get_subscription(user, db)
+
+
+class PurchaseAttempt(BaseModel):
+    success: bool
+    product_id: str | None = None
+    error_code: str | None = None     # e.g. "purchase_cancelled", "network_error"
+    error_message: str | None = None  # short human-readable reason
+
+
+@router.post("/log-attempt", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("30/minute")
+async def log_purchase_attempt(
+    request: Request,
+    payload: PurchaseAttempt,
+    user: User = Depends(get_current_user),
+):
+    """Tell the server that the user just hit "buy" — used purely for Telegram
+    visibility into purchase attempts. Failures here don't reach the RevenueCat
+    webhook (Apple/Google never confirm them), so this is the only signal we
+    have for "user tried to pay and was declined / cancelled".
+    """
+    if payload.success:
+        title = "🟢 <b>Покупка подтверждена клиентом</b>"
+    else:
+        # Distinguish a deliberate cancel from a real failure — a cancel is
+        # noise, a failure is something I might want to investigate.
+        if payload.error_code == "purchase_cancelled":
+            title = "⚪ <b>Покупка отменена пользователем</b>"
+        else:
+            title = "🔴 <b>Сбой покупки</b>"
+    lines = [title, f"📧 {user.email}"]
+    if payload.product_id:
+        lines.append(f"📦 {payload.product_id}")
+    if payload.error_message:
+        lines.append(f"📝 {payload.error_message}")
+    elif payload.error_code:
+        lines.append(f"📝 {payload.error_code}")
+    await notify("\n".join(lines))
