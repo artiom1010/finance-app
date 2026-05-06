@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 import httpx
 
@@ -92,6 +93,8 @@ def fmt_subscription_event(
     environment: str | None,
     price: float | None,
     currency: str | None,
+    expires_at: datetime | None = None,
+    purchased_at: datetime | None = None,
 ) -> str:
     emoji, title = _SUB_EVENT_LABEL.get(event_type, ("📩", event_type))
     lines = [f"{emoji} <b>{title}</b>"]
@@ -99,10 +102,25 @@ def fmt_subscription_event(
         lines.append(f"📧 {email}")
     if product_id:
         lines.append(f"📦 {product_id}")
-    if price is not None and currency:
+    if price is not None and price > 0 and currency:
         lines.append(f"💰 {price} {currency}")
+    # Date hints. EXPIRATION shows when it expired (purchased_at == event time);
+    # everything else shows when the next billing / loss-of-access is due.
+    if event_type == "EXPIRATION":
+        if purchased_at:
+            lines.append(f"📅 истекла: {_fmt_dt(purchased_at)}")
+    else:
+        if purchased_at:
+            lines.append(f"📅 списано: {_fmt_dt(purchased_at)}")
+        if expires_at:
+            lines.append(f"⏭ следующее списание: {_fmt_dt(expires_at)}")
     if store:
         lines.append(f"🛒 {store}")
     if environment and environment.upper() != "PRODUCTION":
         lines.append(f"🧪 {environment}")
     return "\n".join(lines)
+
+
+def _fmt_dt(dt: datetime) -> str:
+    """UTC date-time in a compact `2026-05-04 14:01 UTC` form."""
+    return dt.strftime("%Y-%m-%d %H:%M UTC")

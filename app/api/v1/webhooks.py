@@ -91,7 +91,14 @@ async def _resolve_user(
 
 
 def _expires_at_from_event(event: dict[str, Any]) -> datetime | None:
-    ms = event.get("expiration_at_ms")
+    return _ms_to_dt(event.get("expiration_at_ms"))
+
+
+def _purchased_at_from_event(event: dict[str, Any]) -> datetime | None:
+    return _ms_to_dt(event.get("purchased_at_ms") or event.get("event_timestamp_ms"))
+
+
+def _ms_to_dt(ms: Any) -> datetime | None:
     if ms is None:
         return None
     try:
@@ -142,6 +149,8 @@ async def revenuecat_webhook(
                 environment=event.get("environment"),
                 price=event.get("price"),
                 currency=event.get("currency"),
+                expires_at=_expires_at_from_event(event),
+                purchased_at=_purchased_at_from_event(event),
             ))
         return
 
@@ -175,6 +184,9 @@ async def revenuecat_webhook(
         reason=f"webhook:{event_type}",
     )
 
+    # Tell Telegram the *raw* expires_at from the event — for EXPIRATION/REFUND
+    # we cleared it above for the DB write, but the notification still wants
+    # to show "истекла такого-то".
     await notify(fmt_subscription_event(
         event_type,
         email=user.email,
@@ -183,4 +195,6 @@ async def revenuecat_webhook(
         environment=event.get("environment"),
         price=event.get("price"),
         currency=event.get("currency"),
+        expires_at=_expires_at_from_event(event),
+        purchased_at=_purchased_at_from_event(event),
     ))
