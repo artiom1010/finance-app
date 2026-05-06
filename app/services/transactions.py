@@ -15,6 +15,7 @@ from app.models.transaction import Category, Transaction
 from app.models.user import User
 from app.schemas.transaction import (
     CategoryStatsItem,
+    MonthlySummaryItem,
     TransactionCreate,
     TransactionListResponse,
     TransactionResponse,
@@ -237,6 +238,66 @@ async def get_stats(
         period_start=date_from,
         period_end=date_to,
     )
+
+
+async def get_monthly_summary(
+    user: User,
+    db: AsyncSession,
+    end_year: int,
+    end_month: int,
+    months: int,
+) -> list[MonthlySummaryItem]:
+    """Income/expense totals for `months` consecutive months ending at
+    (end_year, end_month). Months with no transactions are still returned
+    with zero totals so the UI can render a stable bar count.
+    """
+    # Walk back `months - 1` from the end to find the start.
+    sy, sm = end_year, end_month - (months - 1)
+    while sm <= 0:
+        sm += 12
+        sy -= 1
+    start_date = Date(sy, sm, 1)
+    if end_month == 12:
+        end_exclusive = Date(end_year + 1, 1, 1)
+    else:
+        end_exclusive = Date(end_year, end_month + 1, 1)
+
+    rows = await db.execute(
+        select(
+            func.extract("year", Transaction.date).label("y"),
+            func.extract("month", Transaction.date).label("m"),
+            Transaction.type,
+            func.sum(Transaction.amount).label("total"),
+        )
+        .where(
+            Transaction.user_id == user.id,
+            Transaction.deleted_at.is_(None),
+            Transaction.date >= start_date,
+            Transaction.date < end_exclusive,
+        )
+        .group_by("y", "m", Transaction.type)
+    )
+
+    buckets: dict[tuple[int, int], dict[str, Decimal]] = {}
+    for r in rows:
+        key = (int(r.y), int(r.m))
+        bucket = buckets.setdefault(
+            key, {"income": Decimal("0"), "expense": Decimal("0")}
+        )
+        bucket[r.type] = Decimal(r.total or 0)
+
+    out: list[MonthlySummaryItem] = []
+    y, m = sy, sm
+    for _ in range(months):
+        b = buckets.get((y, m), {"income": Decimal("0"), "expense": Decimal("0")})
+        out.append(MonthlySummaryItem(
+            year=y, month=m, income=b["income"], expense=b["expense"],
+        ))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return out
 
 
 async def export_csv(

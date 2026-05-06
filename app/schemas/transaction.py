@@ -66,3 +66,14 @@ class TransactionStatsResponse(BaseModel):
     expense_by_category: list[CategoryStatsItem]
     period_start: Date | None
     period_end: Date | None
+
+
+class MonthlySummaryItem(BaseModel):
+    year: int
+    month: int
+    income: Decimal
+    expense: Decimal
+
+
+class MonthlySummaryResponse(BaseModel):
+    months: list[MonthlySummaryItem]

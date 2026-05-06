@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.models.user import User
 from app.schemas.transaction import (
+    MonthlySummaryResponse,
     TransactionCreate,
     TransactionListResponse,
     TransactionResponse,
@@ -70,6 +71,29 @@ async def get_stats(
         stats.expense_by_category = stats.expense_by_category[:FREE_STATS_TOP_CATEGORIES]
 
     return stats
+
+
+@router.get("/monthly-summary", response_model=MonthlySummaryResponse)
+async def get_monthly_summary(
+    end_year: int = Query(..., ge=2000, le=2100),
+    end_month: int = Query(..., ge=1, le=12),
+    months: int = Query(6, ge=1, le=12),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Per-month income/expense totals for the cross-month chart.
+
+    Pro-only — Free users see just the current month elsewhere.
+    """
+    if not is_effective_pro(user.subscription):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Сравнение по месяцам доступно в Plus",
+        )
+    items = await tx_service.get_monthly_summary(
+        user, db, end_year=end_year, end_month=end_month, months=months,
+    )
+    return MonthlySummaryResponse(months=items)
 
 
 @router.get("", response_model=TransactionListResponse)
