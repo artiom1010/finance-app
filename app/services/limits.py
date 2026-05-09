@@ -67,6 +67,7 @@ async def create_limit(data: LimitCreate, user: User, db: AsyncSession) -> Limit
         category_id=data.category_id,
         amount=data.amount,
         period=data.period,
+        alert_thresholds=data.alert_thresholds,
     )
     db.add(lim)
     await db.commit()
@@ -89,6 +90,8 @@ async def update_limit(
         lim.amount = data.amount
     if data.period is not None:
         lim.period = data.period
+    if data.alert_thresholds is not None:
+        lim.alert_thresholds = data.alert_thresholds
 
     await db.commit()
     await db.refresh(lim)

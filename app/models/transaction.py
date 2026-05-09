@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -57,6 +57,11 @@ class BudgetLimit(Base):
     category_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id", ondelete="CASCADE"), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     period: Mapped[str] = mapped_column(String, default="month")  # month | week
+    # Percent thresholds (relative to `amount`) at which an in-app alert
+    # fires when a fresh expense pushes `spent` past one of them.
+    alert_thresholds: Mapped[list[int]] = mapped_column(
+        JSONB, nullable=False, server_default="[50, 75, 100]",
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

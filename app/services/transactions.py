@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.telegram import fmt_first_transaction, notify
-from app.models.transaction import Category, Transaction
+from app.models.transaction import BudgetLimit, Category, Transaction
 from app.models.user import User
 from app.schemas.transaction import (
     CategoryStatsItem,
@@ -21,7 +21,9 @@ from app.schemas.transaction import (
     TransactionResponse,
     TransactionStatsResponse,
     TransactionUpdate,
+    TriggeredAlert,
 )
+from app.services.limits import _get_spent
 
 
 async def _validate_category(category_id: uuid.UUID, user: User, db: AsyncSession) -> None:
@@ -57,7 +59,53 @@ async def create_transaction(data: TransactionCreate, user: User, db: AsyncSessi
         cat_name = tx.category.name if tx.category else "—"
         await notify(fmt_first_transaction(user.email, data.amount, data.type, cat_name))
 
-    return TransactionResponse.model_validate(tx)
+    triggered = await _check_limit_thresholds(tx, data, user, db)
+
+    response = TransactionResponse.model_validate(tx)
+    response.triggered_alerts = triggered
+    return response
+
+
+async def _check_limit_thresholds(
+    tx: Transaction, data: TransactionCreate, user: User, db: AsyncSession,
+) -> list[TriggeredAlert]:
+    """Return thresholds that this transaction just pushed `spent` past.
+
+    Only expense transactions trigger alerts — incomes and category-less
+    cases produce an empty list. Detection is transition-based: for each
+    configured threshold `t`, fire if `spent_before < limit*t/100 <= spent_after`.
+    No "already-fired" persistence — natural transitivity covers it.
+    """
+    if data.type != "expense":
+        return []
+
+    limit_row = await db.execute(
+        select(BudgetLimit).where(
+            BudgetLimit.user_id == user.id,
+            BudgetLimit.category_id == data.category_id,
+        )
+    )
+    limit = limit_row.scalar_one_or_none()
+    if limit is None:
+        return []
+
+    spent_after = Decimal(str(await _get_spent(limit, user, db)))
+    spent_before = spent_after - Decimal(data.amount)
+    limit_amount = Decimal(str(limit.amount))
+    cat_name = tx.category.name if tx.category else "—"
+
+    triggered: list[TriggeredAlert] = []
+    for t in (limit.alert_thresholds or []):
+        threshold_amount = limit_amount * Decimal(t) / Decimal(100)
+        if spent_before < threshold_amount <= spent_after:
+            triggered.append(TriggeredAlert(
+                limit_id=limit.id,
+                category_name=cat_name,
+                threshold=int(t),
+                spent=spent_after,
+                amount=limit_amount,
+            ))
+    return triggered
 
 
 async def get_transactions(

@@ -32,6 +32,18 @@ class CategoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class TriggeredAlert(BaseModel):
+    """A spending-limit threshold that the just-created transaction pushed
+    `spent` past. Mobile renders these as a top banner with a "К лимитам"
+    CTA — see `mobile/lib/features/limits/limit_alert_provider.dart`.
+    """
+    limit_id: uuid.UUID
+    category_name: str
+    threshold: int
+    spent: Decimal
+    amount: Decimal
+
+
 class TransactionResponse(BaseModel):
     id: uuid.UUID
     category_id: uuid.UUID
@@ -41,6 +53,7 @@ class TransactionResponse(BaseModel):
     note: str | None
     date: Date
     created_at: datetime
+    triggered_alerts: list[TriggeredAlert] = []
 
     model_config = {"from_attributes": True}
 
