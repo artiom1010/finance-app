@@ -17,3 +17,7 @@ mobile/.flutter-plugins-dependencies
 FinanceAI_TZ.docx
 
 fin-app(c-design)/
+
+# macOS
+.DS_Store
+**/.DS_Store
